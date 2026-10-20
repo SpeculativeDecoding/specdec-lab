@@ -1,0 +1,34 @@
+# Full matched-budget sweep (Path A, SGLang v0.5.22), EAGLE-3 drafter on Llama-3.1-8B-Instruct.
+# One server launch per entry/tree; every bench x batch size x temperature runs on it.
+server:                      # shared by every server below
+  model_path: meta-llama/Llama-3.1-8B-Instruct
+  draft_model_path: lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B
+  algorithm: EAGLE3
+  dtype: float16
+  max_running_requests: 32
+  cuda_graph_max_bs: 32
+  mem_fraction_static: 0.80
+  disable_radix_cache: true
+  port: 30000
+
+servers:
+  - mode: ar                 # plain decoding: the speedup denominator
+  - mode: auto               # SGLang auto-tuned; resolves to (steps 5, topk 4, tokens 8) for Llama
+  - mode: adaptive           # SGLang adaptive (topk must be 1); default ladder
+    adaptive_start: {steps: 3, topk: 1, num_draft_tokens: 4}
+  - mode: spec
+    plan_budgets: [16, 32, 60]   # the 16 matched-budget trees from the plan
+    trees:                       # chain references outside the matched grid
+      - {steps: 3, topk: 1, num_draft_tokens: 4, label: chain}
+      - {steps: 7, topk: 1, num_draft_tokens: 8, label: chain}
+
+run:
+  benches: [mt_bench, humaneval, gsm8k, alpaca, sum, qa]
+  batch_sizes: [1, 8, 32]
+  temperatures: [0.0]
+  subset: all                # all | calib | test (30/70 split frozen by question hash)
+  limit: 0                   # 0 = every question
+  max_turns: 0               # 0 = all turns (MT-Bench has 2)
+  max_new_tokens: 1024
+  repeat_prompts_for_batch: {32: 2}   # send the prompt set twice at bs=32
+  warmup_questions: 4

@@ -1,0 +1,15 @@
+# Path B: official EAGLE repository (batch size 1). Python 3.10-3.12, CUDA 12.x driver.
+# torch 2.6.0 is what EAGLE's requirements.txt pins; install it from the PyTorch index (cu124).
+torch==2.6.0
+# 4.53.3 is the newest release that still exports transformers.utils.LossKwargs,
+# which eagle/model/modeling_qwen3_kv.py imports and ea_model.py loads unconditionally.
+# 4.54.0+ makes `from eagle.model.ea_model import EaModel` fail. Verified Oct 2026.
+transformers==4.53.3
+accelerate>=0.26.0
+safetensors
+huggingface_hub
+sentencepiece
+protobuf
+numpy
+pyyaml
+requests
