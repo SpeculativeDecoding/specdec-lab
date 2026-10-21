@@ -26,13 +26,19 @@ The helper packages the project, copies it to CHTC staging, and submits the
 job from the CHTC login node. Set `CHTC_HOST` in `chtc/.env` only if a different
 login host is needed.
 
-The model cache is downloaded into the job's scratch space. Completed and
-partial results are synced to `/staging/$CHTC_USER/specdec-talon-three-bench-results`
-every five minutes and restored when the job starts, so reruns continue from
-the last completed question. Results use an isolated directory so they cannot
-be mixed with outputs from the complete six-benchmark suite. Condor also
-transfers `results/talon_three_bench` back to the submit directory when the job
-exits.
+The project archive and credentials are spooled to the Condor scheduler at
+submission; the model cache and partial results stay in the job's scratch space
+while it runs. Results use an isolated directory so they cannot be mixed with
+outputs from the complete six-benchmark suite. Since spooled jobs keep their
+outputs at the scheduler, retrieve them from the CHTC access point after the
+job finishes:
+
+```sh
+condor_transfer_data CLUSTER_ID
+```
+
+If the job is evicted, its scratch checkpoints are not persistent and the
+interrupted configuration must be rerun.
 
 ## Time and resources
 
