@@ -1,6 +1,6 @@
-# specdec-bench: EAGLE-3 speculative decoding on Llama-3.1-8B-Instruct
+# EAGLE-3 speculative decoding on Llama-3.1-8B-Instruct
 
-Harness for the "Should draft tree shape depend on the workload?" project. Two code paths:
+Harness for the "Should draft tree shape depend on the workload?" project. Code paths:
 
 | Path | Engine | Batch sizes | Use it for |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ python scripts/persist.py status  --store /content/drive/MyDrive/specdec
 A laptop (e.g. Apple-silicon Mac) cannot run the experiments (no CUDA; fp16 Llama-3.1-8B needs 16 GB for weights alone),
 but `python -m unittest discover -s tests` and `scripts/summarize.py` on copied results run fine there.
 
-## Day-1 smoke tests
+## Smoke tests
 
 ```bash
 # Path B: one prompt, EAGLE-3 vs plain decoding, prints tau and speedup
@@ -117,7 +117,7 @@ python scripts/summarize.py results/ --out results/summary.csv
 
 `--subset calib|test` (Path B) or `run.subset` (Path A) selects the frozen 30/70 split (hash of bench + question id).
 
-## adaptive tree (adaptive draft trees)
+## Adaptive tree (adaptive draft trees)
 
 `specdec/adaptive.py` implements adaptive tree (Liu et al., arXiv 2601.07353, Algorithm 2) as a drop-in
 replacement for EAGLE-3's tree builder `ea_layer.topK_genrate`; verification is unchanged, so
