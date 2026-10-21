@@ -2,7 +2,7 @@
 
 Uses the six question files shipped in the EAGLE repo (eagle/data/<bench>/question.jsonl):
 mt_bench (80, 2 turns each), humaneval, gsm8k, alpaca, sum (CNN/DM), qa (NQ): 80 each.
-These are the same six benchmarks TALON and PRISM report on.
+These are the same six benchmarks adaptive tree and PRISM report on.
 
 Prompt construction copies EAGLE's gen_ea_answer_llama3chat.py exactly:
   system message below + tokenizer.apply_chat_template(..., tokenize=False,

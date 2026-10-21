@@ -27,8 +27,8 @@ tar -czf "$ARCHIVE" \
   --exclude='specdec-bench/results' \
   -C "$WORKSPACE" specdec-bench
 
-ssh "$REMOTE" "mkdir -p ~/specdec-bench/chtc/logs ~/specdec-bench/chtc/results/talon_three_bench"
+ssh "$REMOTE" "mkdir -p ~/specdec-bench/chtc/logs ~/specdec-bench/chtc/results/adaptive_three_bench"
 scp "$ARCHIVE" "$REMOTE:~/specdec-bench/chtc/specdec-bench.tar.gz"
 rsync -av --exclude='.env' --exclude='logs/' "$HERE/" "$REMOTE:~/specdec-bench/chtc/"
 scp "$HERE/.env" "$REMOTE:~/specdec-bench/chtc/.env"
-ssh -t "$REMOTE" "cd ~/specdec-bench/chtc && trap 'rm -f .env specdec-bench.tar.gz' EXIT && condor_submit -spool job_talon.sub"
+ssh -t "$REMOTE" "cd ~/specdec-bench/chtc && trap 'rm -f .env specdec-bench.tar.gz' EXIT && condor_submit -spool job_adaptive.sub"

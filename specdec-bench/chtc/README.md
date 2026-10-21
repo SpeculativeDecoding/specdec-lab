@@ -1,6 +1,6 @@
-# CHTC TALON suite
+# CHTC adaptive tree suite
 
-Runs notebook cell 7's TALON ablations on HumanEval, Alpaca, and MT-Bench using
+Runs notebook cell 7's adaptive tree ablations on HumanEval, Alpaca, and MT-Bench using
 one GPU with at least 40 GB of VRAM. These represent focused code generation,
 general single-turn instructions, and broad multi-turn dialogue. The job uses
 a CUDA 12.4 PyTorch container and requires access to the gated
@@ -42,10 +42,10 @@ interrupted configuration must be rerun.
 
 ## Time and resources
 
-The full suite remains available as `bash scripts/run_talon_suite.sh`, which
+The full suite remains available as `bash scripts/run_adaptive_suite.sh`, which
 runs all six benchmarks by default. For a custom selection, set `BENCHES` to a
 comma-separated list. The CHTC job uses
-`bash scripts/run_talon_three_bench_suite.sh` to run only the three benchmarks
+`bash scripts/run_adaptive_three_bench_suite.sh` to run only the three benchmarks
 listed above.
 
 The suite runs 12 speculative configurations plus a plain autoregressive
@@ -57,5 +57,5 @@ model downloads. Queue wait is separate and unpredictable. The estimate is
 approximate because actual answer lengths and GPU throughput vary.
 
 The submit file requests 8 CPUs, 48 GB RAM, 80 GB disk, and one GPU with at
-least 40 GB VRAM. Results appear under `chtc/results/talon` on the CHTC login
+least 40 GB VRAM. Results appear under `chtc/results/adaptive` on the CHTC login
 side after Condor transfers them back. Job logs are in `chtc/logs/`.

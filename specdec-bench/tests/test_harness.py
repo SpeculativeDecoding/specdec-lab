@@ -65,24 +65,24 @@ class TestTreeConfig(unittest.TestCase):
                                            "--speculative-eagle-topk", "10",
                                            "--speculative-num-draft-tokens", "60"])
         self.assertEqual(SGLANG_AUTO_LLAMA.problems(), [])
-        # TALON's EAGLE-3 baseline (K=10, D=8, N=60) == EAGLE repo depth 8 == steps 9
-        base = [t for t in PLAN_GRID[60] if t.label == "talon_eagle3_baseline"][0]
+        # adaptive tree's EAGLE-3 baseline (K=10, D=8, N=60) == EAGLE repo depth 8 == steps 9
+        base = [t for t in PLAN_GRID[60] if t.label == "adaptive_eagle3_baseline"][0]
         self.assertEqual(base.eagle_kwargs(), {"total_token": 60, "depth": 8, "top_k": 10})
 
 
 # ----------------------------------------------------------------------------- data
 class TestData(unittest.TestCase):
-    def test_talon_suite_entry_points(self):
-        with open(os.path.join(ROOT, "scripts", "run_talon_suite.sh"), encoding="utf-8") as f:
+    def test_adaptive_suite_entry_points(self):
+        with open(os.path.join(ROOT, "scripts", "run_adaptive_suite.sh"), encoding="utf-8") as f:
             full_suite = f.read()
-        with open(os.path.join(ROOT, "scripts", "run_talon_three_bench_suite.sh"), encoding="utf-8") as f:
+        with open(os.path.join(ROOT, "scripts", "run_adaptive_three_bench_suite.sh"), encoding="utf-8") as f:
             subset_suite = f.read()
-        with open(os.path.join(ROOT, "chtc", "job_talon.sh"), encoding="utf-8") as f:
+        with open(os.path.join(ROOT, "chtc", "job_adaptive.sh"), encoding="utf-8") as f:
             chtc_job = f.read()
 
         self.assertIn("BENCHES=${BENCHES:-all}", full_suite)
         self.assertIn("export BENCHES=humaneval,alpaca,mt_bench", subset_suite)
-        self.assertIn("run_talon_three_bench_suite.sh", chtc_job)
+        self.assertIn("run_adaptive_three_bench_suite.sh", chtc_job)
 
     def test_parse_benches(self):
         self.assertEqual(data.parse_benches("all"), list(data.BENCHES))
@@ -297,7 +297,7 @@ class TestEagleRunner(unittest.TestCase):
         src = open(os.path.join(ROOT, "scripts", "run_eagle.py")).read()
         self.assertIn('"--skip-existing"', src)
         self.assertRegex(src, r"if args\.skip_existing and os\.path\.exists\(out\):\s+.*\n\s+continue")
-        self.assertIn("--skip-existing", open(os.path.join(ROOT, "scripts", "run_talon_suite.sh")).read())
+        self.assertIn("--skip-existing", open(os.path.join(ROOT, "scripts", "run_adaptive_suite.sh")).read())
 
     def test_length_risk_flag(self):
         r, _ = self.make()

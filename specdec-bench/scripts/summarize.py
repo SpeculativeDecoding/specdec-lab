@@ -38,10 +38,14 @@ def describe(meta):
     alg = "eagle3" if meta.get("use_eagle3", True) else "eagle1"
     if meta["mode"] != "spec":
         return "ar", meta["mode"], {}
-    if meta.get("talon"):
-        t = meta["talon"]
-        return f"{alg}_{t['name']}", "talon", {"num_draft_tokens": t["budget"], "mu": t["mu"],
-                                              "root_k": t["root_k"]}
+    adaptive = meta.get("adaptive")
+    if adaptive is None:
+        adaptive = next((value for value in meta.values()
+                         if isinstance(value, dict) and {"budget", "mu", "root_k"} <= value.keys()), None)
+    if adaptive:
+        name = f"adaptive_n{adaptive['budget']}_mu{adaptive['mu']:g}_k{adaptive['root_k']}"
+        return f"{alg}_{name}", "adaptive", {"num_draft_tokens": adaptive["budget"], "mu": adaptive["mu"],
+                                              "root_k": adaptive["root_k"]}
     tree = meta.get("tree") or {}
     return f"{alg}_{tree['name']}", "spec", tree
 

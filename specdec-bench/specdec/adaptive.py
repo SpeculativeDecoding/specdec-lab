@@ -1,4 +1,4 @@
-"""TALON: budget-driven adaptive draft trees (Liu et al., arXiv 2601.07353, Algorithm 2).
+"""adaptive tree: budget-driven adaptive draft trees (Liu et al., arXiv 2601.07353, Algorithm 2).
 
 Drop-in replacement for the EAGLE-3 draft-tree builder `ea_layer.topK_genrate`
 (SafeAILab/EAGLE @ cb7e0841, eagle/model/cnets.py). Verification is untouched, so
@@ -50,13 +50,13 @@ from typing import Dict, List, Optional
 
 # ----------------------------------------------------------------------------- config
 @dataclass(frozen=True)
-class TalonConfig:
+class AdaptiveConfig:
     budget: int = 60        # N: verified nodes INCLUDING the root (== EAGLE total_token)
     mu: float = 0.03        # confidence threshold, 0 < mu <= 1
     root_k: int = 10        # K: width of the forced top-K root layer
     max_depth: int = 0      # optional safety cap on layers (0 = none, as in the paper)
 
-    def validate(self) -> "TalonConfig":
+    def validate(self) -> "AdaptiveConfig":
         if self.budget < 2:
             raise ValueError("budget N must be >= 2 (root + at least one draft node)")
         if not (0.0 < self.mu <= 1.0):
@@ -69,7 +69,7 @@ class TalonConfig:
 
     @property
     def name(self) -> str:
-        return f"talon_n{self.budget}_mu{self.mu:g}_k{self.root_k}"
+        return f"adaptive_n{self.budget}_mu{self.mu:g}_k{self.root_k}"
 
     def to_dict(self) -> Dict:
         return {"budget": self.budget, "mu": self.mu, "root_k": self.root_k,
@@ -78,7 +78,7 @@ class TalonConfig:
 
 # ----------------------------------------------------------------------------- tensor ops
 class TorchOps:
-    """The handful of tensor operations TALON needs, on torch."""
+    """The handful of tensor operations adaptive tree needs, on torch."""
 
     def __init__(self):
         import torch
@@ -182,7 +182,7 @@ class NumpyOps:
 
 # ----------------------------------------------------------------------------- selection
 def select_children(ops, cu_scores, remaining: int, log_mu: float, root_k: Optional[int]):
-    """One TALON layer. cu_scores: (n_parents, V) cumulative log-probs of all children.
+    """One adaptive tree layer. cu_scores: (n_parents, V) cumulative log-probs of all children.
 
     Returns (parent_local, token_draft_idx, score), each 1-D, ordered parent-major and
     by descending score within a parent (EAGLE's node order within a layer).
@@ -249,16 +249,16 @@ def build_tree_outputs(parents: List[int], depths: List[int], sort_for_sampling:
 
 
 # ----------------------------------------------------------------------------- drafter
-class TalonDrafter:
-    """Replaces ea_layer.topK_genrate with TALON's Algorithm 2."""
+class AdaptiveDrafter:
+    """Replaces ea_layer.topK_genrate with adaptive tree's Algorithm 2."""
 
-    def __init__(self, layer, cfg: TalonConfig, ops=None):
+    def __init__(self, layer, cfg: AdaptiveConfig, ops=None):
         cfg.validate()
         for attr in ("lm_head", "norm", "logsoftmax", "d2t", "reset", "config"):
             if not hasattr(layer, attr):
-                raise TypeError(f"TALON needs an EAGLE-3 draft layer (missing .{attr})")
+                raise TypeError(f"adaptive tree needs an EAGLE-3 draft layer (missing .{attr})")
         if not hasattr(layer.config, "draft_vocab_size"):
-            raise TypeError("TALON needs an EAGLE-3 draft layer (config.draft_vocab_size)")
+            raise TypeError("adaptive tree needs an EAGLE-3 draft layer (config.draft_vocab_size)")
         self.layer = layer
         self.cfg = cfg
         self.ops = ops or TorchOps()
@@ -354,24 +354,24 @@ class TalonDrafter:
                 ops.long_tensor(pos, device=dev))
 
 
-def enable_talon(model, cfg: TalonConfig, ops=None) -> TalonDrafter:
-    """Patch an loaded EaModel so every draft tree is built with TALON.
+def enable_adaptive(model, cfg: AdaptiveConfig, ops=None) -> AdaptiveDrafter:
+    """Patch an loaded EaModel so every draft tree is built with adaptive tree.
 
     Load the model with total_token = cfg.budget so EAGLE's own length guard
-    (max_length - ea_layer.total_tokens - 10) matches the TALON budget.
+    (max_length - ea_layer.total_tokens - 10) matches the adaptive tree budget.
     """
     layer = model.ea_layer
     if getattr(layer, "total_tokens", cfg.budget - 1) != cfg.budget - 1:
         raise ValueError(f"load the model with total_token={cfg.budget} "
                          f"(ea_layer.total_tokens={layer.total_tokens})")
-    drafter = TalonDrafter(layer, cfg, ops)
+    drafter = AdaptiveDrafter(layer, cfg, ops)
     layer.topK_genrate = types.MethodType(lambda _self, *a, **k: drafter.topK_genrate(*a, **k), layer)
-    layer.talon = drafter
+    layer.adaptive = drafter
     return drafter
 
 
 # ----------------------------------------------------------------------------- reference
-def reference_talon_tree(root_logp: List[float], child_logp, budget: int, mu: float, root_k: int):
+def reference_adaptive_tree(root_logp: List[float], child_logp, budget: int, mu: float, root_k: int):
     """Plain-Python Algorithm 2 over the FULL vocabulary (no pre-filter), for testing.
 
     root_logp: log-probs of the root's children; child_logp(path_tuple) -> list of

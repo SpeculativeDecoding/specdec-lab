@@ -1,6 +1,6 @@
-"""TALON tests. Run with numpy always, and additionally with torch when it is installed:
+"""adaptive tree tests. Run with numpy always, and additionally with torch when it is installed:
 
-  python -m unittest tests.test_talon -v
+  python -m unittest tests.test_adaptive -v
 """
 import itertools
 import math
@@ -15,8 +15,8 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "tests"))
 
 from fake_draft import FakeDraftLayer, _np  # noqa: E402
-from specdec.talon import (NumpyOps, TalonConfig, TalonDrafter, build_tree_outputs,  # noqa: E402
-                           enable_talon, reference_talon_tree)
+from specdec.adaptive import (NumpyOps, AdaptiveConfig, AdaptiveDrafter, build_tree_outputs,  # noqa: E402
+                           enable_adaptive, reference_adaptive_tree)
 
 try:
     import torch  # noqa: F401
@@ -27,7 +27,7 @@ except Exception:
 
 def make_ops(backend):
     if backend == "torch":
-        from specdec.talon import TorchOps
+        from specdec.adaptive import TorchOps
         return TorchOps()
     return NumpyOps()
 
@@ -39,8 +39,8 @@ def as_backend(a, backend):
     return a
 
 
-def run_talon(layer, cfg, backend, prompt_len=6, logits_processor=None, input_ids=None):
-    d = TalonDrafter(layer, cfg, make_ops(backend))
+def run_adaptive(layer, cfg, backend, prompt_len=6, logits_processor=None, input_ids=None):
+    d = AdaptiveDrafter(layer, cfg, make_ops(backend))
     if input_ids is None:
         input_ids = np.array([[int(layer.target_of[i % layer.V]) for i in range(prompt_len + 1)]])
     hidden = np.zeros((1, input_ids.shape[1] - 1, 1))
@@ -103,10 +103,10 @@ def eagle_retrieve_port(mask_index_list, sort_for_sampling):
     return [[int(x) for x in r] for r in tree_mask], tree_position_ids, retrieve_indices
 
 
-class TestTalonAgainstReference(unittest.TestCase):
+class TestAdaptiveAgainstReference(unittest.TestCase):
     def check(self, backend, V, cfg, use_d2t, seed, peaky=None):
         layer = FakeDraftLayer(V, use_d2t=use_d2t, seed=seed, peaky=peaky, backend=backend)
-        d, (draft_tokens, retrieve, mask, pos), input_ids = run_talon(layer, cfg, backend)
+        d, (draft_tokens, retrieve, mask, pos), input_ids = run_adaptive(layer, cfg, backend)
         ctx = f"backend={backend} V={V} {cfg} d2t={use_d2t} seed={seed}"
         # 1) exact budget: N nodes including the root
         self.assertEqual(draft_tokens.shape, (1, cfg.budget), ctx)
@@ -115,7 +115,7 @@ class TestTalonAgainstReference(unittest.TestCase):
         parents = parents_from_mask(mask)
         got = tree_paths(layer, draft_tokens, parents)
         root_lp = [layer.logp_of_path((w,)) for w in range(V)]
-        ref = reference_talon_tree(root_lp, lambda p: [layer.logp_of_path(p + (w,)) for w in range(V)],
+        ref = reference_adaptive_tree(root_lp, lambda p: [layer.logp_of_path(p + (w,)) for w in range(V)],
                                    cfg.budget, cfg.mu, cfg.root_k)
         self.assertEqual(got, [p for p, _ in ref], ctx)
         # 3) outputs agree with EAGLE's own post-processing given the same parents
@@ -135,14 +135,14 @@ class TestTalonAgainstReference(unittest.TestCase):
         for backend in BACKENDS:
             for V, N, mu, K, use_d2t, seed in itertools.product(
                     (6, 40), (2, 5, 16, 60), (0.01, 0.03, 0.3, 1.0), (1, 3, 10), (False, True), (0, 1)):
-                self.check(backend, V, TalonConfig(N, mu, K), use_d2t, seed)
+                self.check(backend, V, AdaptiveConfig(N, mu, K), use_d2t, seed)
                 n += 1
         self.assertGreater(n, 300)
 
     def test_paper_default(self):
         for backend in BACKENDS:
             for seed in range(10):
-                self.check(backend, 300, TalonConfig(60, 0.03, 10), True, seed)
+                self.check(backend, 300, AdaptiveConfig(60, 0.03, 10), True, seed)
 
     def test_prefilter_exact_with_flat_children(self):
         # One dominant parent whose children are almost uniform over a large vocabulary:
@@ -155,21 +155,21 @@ class TestTalonAgainstReference(unittest.TestCase):
                 return 0.01          # nearly flat children
             return 3.0
         for backend in BACKENDS:
-            self.check(backend, 500, TalonConfig(60, 0.03, 10), False, 7, peaky=peaky)
-            self.check(backend, 500, TalonConfig(60, 0.001, 3), False, 8, peaky=peaky)
+            self.check(backend, 500, AdaptiveConfig(60, 0.03, 10), False, 7, peaky=peaky)
+            self.check(backend, 500, AdaptiveConfig(60, 0.001, 3), False, 8, peaky=peaky)
 
 
-class TestTalonBehaviour(unittest.TestCase):
+class TestAdaptiveBehaviour(unittest.TestCase):
     def test_limits(self):
         for backend in BACKENDS:
             # mu = 1 keeps only the anchor: K-wide root, then a single chain
             layer = FakeDraftLayer(50, seed=3, backend=backend)
-            d, (tok, *_), _ = run_talon(layer, TalonConfig(30, 1.0, 5), backend)
+            d, (tok, *_), _ = run_adaptive(layer, AdaptiveConfig(30, 1.0, 5), backend)
             self.assertEqual(d.last["widths"], [5] + [1] * 24)
             self.assertEqual(d.last["depth"], 25)
             # mu -> 0 admits everything: the budget fills at layer 2 (shallow and wide)
             layer = FakeDraftLayer(50, seed=3, backend=backend)
-            d, _, _ = run_talon(layer, TalonConfig(30, 1e-12, 5), backend)
+            d, _, _ = run_adaptive(layer, AdaptiveConfig(30, 1e-12, 5), backend)
             self.assertEqual(d.last["widths"], [5, 24])
 
     def test_root_is_robust_to_overconfidence(self):
@@ -179,26 +179,26 @@ class TestTalonBehaviour(unittest.TestCase):
             return v
         for backend in BACKENDS:
             layer = FakeDraftLayer(20, logits_fn=logits_fn, backend=backend)
-            d, _, _ = run_talon(layer, TalonConfig(16, 0.03, 10), backend)
+            d, _, _ = run_adaptive(layer, AdaptiveConfig(16, 0.03, 10), backend)
             self.assertEqual(d.last["widths"][0], 10)        # forced top-K at the root
             self.assertTrue(all(w == 1 for w in d.last["widths"][1:]))  # then deep and narrow
 
     def test_small_budget_never_forwards_tree(self):
         for backend in BACKENDS:
             layer = FakeDraftLayer(30, seed=1, backend=backend)
-            d, (tok, *_), _ = run_talon(layer, TalonConfig(6, 0.03, 10), backend)
+            d, (tok, *_), _ = run_adaptive(layer, AdaptiveConfig(6, 0.03, 10), backend)
             self.assertEqual(d.last["widths"], [5])          # top-K capped by N - 1
             self.assertEqual(layer.tree_calls, 0)
 
     def test_max_depth_cap(self):
         layer = FakeDraftLayer(30, seed=2)
-        d, (tok, *_), _ = run_talon(layer, TalonConfig(40, 1.0, 2, max_depth=4), "numpy")
+        d, (tok, *_), _ = run_adaptive(layer, AdaptiveConfig(40, 1.0, 2, max_depth=4), "numpy")
         self.assertEqual(d.last["depth"], 4)
         self.assertEqual(tok.shape[1], 1 + 2 + 1 + 1 + 1)
 
     def test_sampling_sort_matches_eagle(self):
         layer = FakeDraftLayer(40, seed=5)
-        d, (tok, retrieve, mask, pos), _ = run_talon(layer, TalonConfig(32, 0.05, 6), "numpy",
+        d, (tok, retrieve, mask, pos), _ = run_adaptive(layer, AdaptiveConfig(32, 0.05, 6), "numpy",
                                                      logits_processor=object())
         parents = parents_from_mask(mask)
         _, _, eret = eagle_retrieve_port(parents[1:], sort_for_sampling=True)
@@ -207,7 +207,7 @@ class TestTalonBehaviour(unittest.TestCase):
     def test_successive_calls_keep_stable_kv_clean(self):
         # Mimic eagenerate: initial call, then a call after 3 accepted tokens + new sample.
         layer = FakeDraftLayer(40, seed=9)
-        d = TalonDrafter(layer, TalonConfig(20, 0.03, 4), NumpyOps())
+        d = AdaptiveDrafter(layer, AdaptiveConfig(20, 0.03, 4), NumpyOps())
         ids = np.array([[1, 2, 3, 4, 5, 6]])
         d.topK_genrate(np.zeros((1, 5, 1)), ids, None, None)
         ids2 = np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9]])
@@ -216,13 +216,13 @@ class TestTalonBehaviour(unittest.TestCase):
         self.assertTrue(all(e["kind"] == "ctx" for e in layer.stable_kv[0][1]))
 
     def test_config_validation(self):
-        for bad in (TalonConfig(1), TalonConfig(60, 0.0), TalonConfig(60, 1.5), TalonConfig(60, 0.03, 0)):
+        for bad in (AdaptiveConfig(1), AdaptiveConfig(60, 0.0), AdaptiveConfig(60, 1.5), AdaptiveConfig(60, 0.03, 0)):
             with self.assertRaises(ValueError):
                 bad.validate()
-        self.assertEqual(TalonConfig().name, "talon_n60_mu0.03_k10")
+        self.assertEqual(AdaptiveConfig().name, "adaptive_n60_mu0.03_k10")
 
 
-class TestEnableTalon(unittest.TestCase):
+class TestEnableAdaptive(unittest.TestCase):
     def test_patch_and_keyword_call(self):
         layer = FakeDraftLayer(40, seed=4)
         layer.total_tokens = 59                      # what EaModel sets for total_token=60
@@ -231,21 +231,21 @@ class TestEnableTalon(unittest.TestCase):
             pass
         m = M()
         m.ea_layer = layer
-        drafter = enable_talon(m, TalonConfig(60, 0.03, 10), NumpyOps())
-        self.assertIs(layer.talon, drafter)
+        drafter = enable_adaptive(m, AdaptiveConfig(60, 0.03, 10), NumpyOps())
+        self.assertIs(layer.adaptive, drafter)
         ids = np.array([[1, 2, 3, 4]])
         # update_inference_inputs calls it with keyword arguments
         out = layer.topK_genrate(np.zeros((1, 3, 1)), input_ids=ids, head=None, logits_processor=None)
         self.assertEqual(out[0].shape, (1, 60))
         layer.total_tokens = 30
         with self.assertRaises(ValueError):
-            enable_talon(m, TalonConfig(60), NumpyOps())
+            enable_adaptive(m, AdaptiveConfig(60), NumpyOps())
 
     def test_rejects_eagle1_layer(self):
         class NotEagle3:
             pass
         with self.assertRaises(TypeError):
-            TalonDrafter(NotEagle3(), TalonConfig(), NumpyOps())
+            AdaptiveDrafter(NotEagle3(), AdaptiveConfig(), NumpyOps())
 
 
 class TestBuildTreeOutputs(unittest.TestCase):
@@ -258,7 +258,7 @@ class TestBuildTreeOutputs(unittest.TestCase):
                 p = int(rng.integers(0, i))
                 parents.append(p)
                 depths.append(depths[p] + 1)
-            # TALON appends layer by layer; reorder nodes breadth-first like the drafter
+            # adaptive tree appends layer by layer; reorder nodes breadth-first like the drafter
             order = sorted(range(n), key=lambda i: (depths[i], i))
             new_of = {o: k for k, o in enumerate(order)}
             par2 = [-1] + [new_of[parents[o]] for o in order[1:]]
@@ -277,8 +277,8 @@ EAGLE_REPO = os.environ.get("EAGLE_REPO", os.path.expanduser("~/EAGLE"))
 
 
 @unittest.skipUnless(os.path.isdir(os.path.join(EAGLE_REPO, "eagle", "model")), "EAGLE checkout not found")
-class TestTalonMirrorsEagleSource(unittest.TestCase):
-    """TALON copies these operations from cnets.Model.topK_genrate; fail if EAGLE changes them."""
+class TestAdaptiveMirrorsEagleSource(unittest.TestCase):
+    """adaptive tree copies these operations from cnets.Model.topK_genrate; fail if EAGLE changes them."""
 
     LINES = [
         "input_ids = input_ids.to(hidden_states.device)",
@@ -349,12 +349,12 @@ class _FakeEaModelWithLayer:
 
 
 class TestRunnerIntegration(unittest.TestCase):
-    def test_talon_records_delta_and_depth(self):
+    def test_adaptive_records_delta_and_depth(self):
         from specdec.eagle_runner import EagleRunner, instrument_drafting
         layer = FakeDraftLayer(40, seed=11)
         layer.total_tokens = 19
         model = _FakeEaModelWithLayer(layer, steps=4)
-        drafter = enable_talon(model, TalonConfig(20, 0.03, 4), NumpyOps())
+        drafter = enable_adaptive(model, AdaptiveConfig(20, 0.03, 4), NumpyOps())
         instrument_drafting(model, static_depth=None)
         r = EagleRunner(model, sync=lambda: None, to_device=lambda ids: np.asarray([ids]),
                         seed_fn=lambda i: None)
@@ -363,7 +363,7 @@ class TestRunnerIntegration(unittest.TestCase):
         self.assertEqual(rec["verify_steps"], 4)
         self.assertGreaterEqual(rec["draft_forwards"], 5)
         self.assertAlmostEqual(rec["delta"], rec["draft_forwards"] / 4)
-        self.assertEqual(rec["mean_tree_nodes"], 20)         # every TALON tree has N nodes
+        self.assertEqual(rec["mean_tree_nodes"], 20)         # every generated tree has N nodes
         self.assertGreaterEqual(rec["mean_tree_depth"], 1)
         # counters reset between generations
         rec2 = r.generate([1, 2, 3], "spec")
@@ -385,31 +385,48 @@ class TestRunnerIntegration(unittest.TestCase):
         self.assertEqual(rec["mean_tree_depth"], 3)
         self.assertEqual(rec["mean_tree_nodes"], 8)
 
-    def test_summarize_names_talon_runs(self):
+    def test_summarize_normalizes_legacy_adaptive_metadata(self):
+        from scripts.summarize import describe
+
+        meta = {
+            "path": "eagle_repo",
+            "mode": "spec",
+            "use_eagle3": True,
+            "tree": None,
+            "previous_config": {"name": "old_n20_mu0.03_k4", "budget": 20, "mu": 0.03, "root_k": 4},
+        }
+        name, mode, config = describe(meta)
+
+        self.assertEqual(name, "eagle3_adaptive_n20_mu0.03_k4")
+        self.assertEqual(mode, "adaptive")
+        self.assertEqual(config, {"num_draft_tokens": 20, "mu": 0.03, "root_k": 4})
+
+    def test_summarize_names_adaptive_runs(self):
         import csv
         import subprocess
         import tempfile
         from specdec.eagle_runner import EagleRunner, instrument_drafting
+
         with tempfile.TemporaryDirectory() as d:
             qs = [{"bench": "gsm8k", "question_id": i, "turns": ["q"]} for i in range(5)]
             layer = FakeDraftLayer(40, seed=13)
             layer.total_tokens = 19
             model = _FakeEaModelWithLayer(layer, steps=3)
-            cfg = TalonConfig(20, 0.03, 4)
-            enable_talon(model, cfg, NumpyOps())
+            cfg = AdaptiveConfig(20, 0.03, 4)
+            enable_adaptive(model, cfg, NumpyOps())
             instrument_drafting(model, None)
             r = EagleRunner(model, sync=lambda: None, to_device=lambda ids: np.asarray([ids]),
                             seed_fn=lambda i: None)
             meta = {"path": "eagle_repo", "bench": "gsm8k", "mode": "spec", "batch_size": 1,
-                    "temperature": 0.0, "use_eagle3": True, "tree": None, "talon": cfg.to_dict()}
+                    "temperature": 0.0, "use_eagle3": True, "tree": None, "adaptive": cfg.to_dict()}
             r.run(qs, "spec", os.path.join(d, "t.jsonl"), meta=meta, warmup=0)
             out = os.path.join(d, "s.csv")
             p = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "summarize.py"), d,
                                 "--out", out, "--n-boot", "100"], capture_output=True, text=True)
             self.assertEqual(p.returncode, 0, p.stderr)
             row = list(csv.DictReader(open(out)))[0]
-            self.assertEqual(row["config"], "eagle3_talon_n20_mu0.03_k4")
-            self.assertEqual(row["mode"], "talon")
+            self.assertEqual(row["config"], "eagle3_adaptive_n20_mu0.03_k4")
+            self.assertEqual(row["mode"], "adaptive")
             self.assertEqual(row["budget"], "20")
             self.assertTrue(float(row["delta"]) > 0 and float(row["mean_tree_depth"]) >= 1)
 

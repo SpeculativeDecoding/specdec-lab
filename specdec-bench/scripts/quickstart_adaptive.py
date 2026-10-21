@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-"""One prompt, three ways, one model load: plain decoding vs EAGLE-3 vs TALON.
+"""One prompt, three ways, one model load: plain decoding vs EAGLE-3 vs adaptive tree.
 
-  python scripts/quickstart_talon.py
-  python scripts/quickstart_talon.py --prompt "Write quicksort in Python." --mu 0.03 --budget 60
+  python scripts/quickstart_adaptive.py
+  python scripts/quickstart_adaptive.py --prompt "Write quicksort in Python." --mu 0.03 --budget 60
 
-EAGLE-3 uses the TALON paper's baseline tree (K=10, D=8, N=60 -> steps 9, topk 10).
-TALON uses the paper defaults (N=60, mu=0.03, K=10) and the same draft weights. Both
+EAGLE-3 uses the adaptive tree paper's baseline tree (K=10, D=8, N=60 -> steps 9, topk 10).
+adaptive tree uses the paper defaults (N=60, mu=0.03, K=10) and the same draft weights. Both
 verify N nodes, so the comparison is at a matched budget.
 """
 import argparse
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from specdec.data import encode_messages, initial_messages  # noqa: E402
 from specdec.eagle_runner import (DEFAULT_BASE, DEFAULT_EAGLE3, EagleRunner,  # noqa: E402
                                   instrument_drafting, load_eagle_model)
-from specdec.talon import TalonConfig, enable_talon  # noqa: E402
+from specdec.adaptive import AdaptiveConfig, enable_adaptive  # noqa: E402
 from specdec.tree_config import TreeConfig  # noqa: E402
 
 
@@ -43,7 +43,7 @@ def main():
     p.add_argument("--max-new-tokens", type=int, default=512)
     args = p.parse_args()
 
-    baseline = TreeConfig(9, 10, args.budget, "talon_eagle3_baseline").validate()
+    baseline = TreeConfig(9, 10, args.budget, "adaptive_eagle3_baseline").validate()
     model = load_eagle_model(baseline, args.base_model, args.ea_model)   # instrumented static tree
     runner = EagleRunner(model, max_new_tokens=args.max_new_tokens)
     ids = encode_messages(runner.tok, initial_messages() + [{"role": "user", "content": args.prompt}])
@@ -54,17 +54,17 @@ def main():
     ar = runner.generate(ids, "ar")
     eagle = runner.generate(ids, "spec")
 
-    enable_talon(model, TalonConfig(args.budget, args.mu, args.root_k))  # same weights, same N
+    enable_adaptive(model, AdaptiveConfig(args.budget, args.mu, args.root_k))  # same weights, same N
     instrument_drafting(model, static_depth=None)
-    runner.generate(ids, "spec")                         # warm-up the TALON path
-    talon = runner.generate(ids, "spec")
+    runner.generate(ids, "spec")                         # warm-up the adaptive tree path
+    adaptive = runner.generate(ids, "spec")
 
-    print("\n=== TALON output ===\n" + talon["text"] + "\n")
+    print("\n=== adaptive tree output ===\n" + adaptive["text"] + "\n")
     print("identical to plain decoding:  EAGLE-3", eagle["output_ids"] == ar["output_ids"],
-          "| TALON", talon["output_ids"] == ar["output_ids"])
+          "| adaptive tree", adaptive["output_ids"] == ar["output_ids"])
     show("plain", ar)
     show("EAGLE-3", eagle, ar)
-    show("TALON", talon, ar)
+    show("adaptive tree", adaptive, ar)
 
 
 if __name__ == "__main__":

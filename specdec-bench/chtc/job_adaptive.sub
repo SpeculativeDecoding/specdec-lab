@@ -1,17 +1,17 @@
 universe = container
 container_image = docker://pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
-executable = job_talon.sh
+executable = job_adaptive.sh
 initial_dir = .
 
-log    = logs/talon.$(Cluster).log
-output = logs/talon.$(Cluster).out
-error  = logs/talon.$(Cluster).err
+log    = logs/adaptive.$(Cluster).log
+output = logs/adaptive.$(Cluster).out
+error  = logs/adaptive.$(Cluster).err
 
 should_transfer_files = YES
 when_to_transfer_output = ON_EXIT
-transfer_input_files = job_talon.sh,.env,specdec-bench.tar.gz
-transfer_output_files = results/talon_three_bench
+transfer_input_files = job_adaptive.sh,.env,specdec-bench.tar.gz
+transfer_output_files = results/adaptive_three_bench
 
 request_cpus   = 8
 request_memory = 48GB

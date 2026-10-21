@@ -24,7 +24,7 @@ import time
 from typing import Callable, Dict, Iterable, List, Optional
 
 from .data import encode_messages, initial_messages, stop_token_ids, truncate_at_stop
-from .talon import TalonConfig, enable_talon
+from .adaptive import AdaptiveConfig, enable_adaptive
 from .tree_config import TreeConfig
 
 DEFAULT_BASE = "meta-llama/Llama-3.1-8B-Instruct"
@@ -33,27 +33,27 @@ DEFAULT_EAGLE3 = "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B"
 
 def load_eagle_model(tree: Optional[TreeConfig], base_model_path: str = DEFAULT_BASE,
                      ea_model_path: str = DEFAULT_EAGLE3, use_eagle3: bool = True,
-                     dtype: str = "float16", talon: Optional[TalonConfig] = None,
+                     dtype: str = "float16", adaptive: Optional[AdaptiveConfig] = None,
                      instrument: bool = True):
     """Load target + draft exactly as the official llama3 eval script does.
 
-    tree:  static EAGLE tree (steps/topk/budget). Ignored when `talon` is given.
-    talon: build every draft tree with TALON (EAGLE-3 drafters only). The model is
-           loaded with total_token = talon.budget so EAGLE's length guard matches.
+    tree:  static EAGLE tree (steps/topk/budget). Ignored when `adaptive` is given.
+    adaptive: build every draft tree with adaptive tree (EAGLE-3 drafters only). The model is
+           loaded with total_token = adaptive.budget so EAGLE's length guard matches.
     """
     import torch  # imported lazily so the package imports without torch
     from eagle.model.ea_model import EaModel
 
-    if talon is not None:
-        talon.validate()
+    if adaptive is not None:
+        adaptive.validate()
         if not use_eagle3:
-            raise ValueError("TALON is implemented for EAGLE-3 draft layers only (as in the paper)")
-        # depth/top_k only size EAGLE's unused static buffers when TALON builds the tree
-        kwargs = {"total_token": talon.budget, "depth": 5, "top_k": talon.root_k}
-        expect_total = talon.budget
+            raise ValueError("adaptive tree is implemented for EAGLE-3 draft layers only (as in the paper)")
+        # depth/top_k only size EAGLE's unused static buffers when adaptive tree builds the tree
+        kwargs = {"total_token": adaptive.budget, "depth": 5, "top_k": adaptive.root_k}
+        expect_total = adaptive.budget
     else:
         if tree is None:
-            raise ValueError("give a TreeConfig or a TalonConfig")
+            raise ValueError("give a TreeConfig or an AdaptiveConfig")
         tree.validate()
         kwargs = tree.eagle_kwargs()   # total_token, depth, top_k
         expect_total = tree.eagle_total_token
@@ -72,10 +72,10 @@ def load_eagle_model(tree: Optional[TreeConfig], base_model_path: str = DEFAULT_
     got = getattr(model.ea_layer, "total_tokens", None)
     if got is not None and got != expect_total - 1:
         raise RuntimeError(f"ea_layer.total_tokens={got}, expected {expect_total - 1}")
-    if talon is not None:
-        enable_talon(model, talon)
+    if adaptive is not None:
+        enable_adaptive(model, adaptive)
     if instrument:
-        instrument_drafting(model, static_depth=None if talon else tree.eagle_depth)
+        instrument_drafting(model, static_depth=None if adaptive else tree.eagle_depth)
     return model
 
 
@@ -83,7 +83,7 @@ def instrument_drafting(model, static_depth: Optional[int]):
     """Count draft forward passes and record realized tree depth per topK_genrate call.
 
     Static EAGLE runs exactly 1 + depth draft passes per call (context pass + `depth`
-    loop passes in cnets.Model.topK_genrate). TALON reports its own count. TALON's
+    loop passes in cnets.Model.topK_genrate). adaptive tree reports its own count. adaptive tree's
     draft efficiency is delta = draft passes / verify passes (Section 5.3).
     """
     layer = model.ea_layer
@@ -94,11 +94,11 @@ def instrument_drafting(model, static_depth: Optional[int]):
     def wrapped(*args, **kwargs):
         out = inner(*args, **kwargs)
         stats["calls"] += 1
-        talon = getattr(layer, "talon", None)
-        if talon is not None:
-            stats["forwards"] += talon.last["forwards"]
-            stats["depth_sum"] += talon.last["depth"]
-            stats["nodes_sum"] += talon.last["nodes"]
+        adaptive = getattr(layer, "adaptive", None)
+        if adaptive is not None:
+            stats["forwards"] += adaptive.last["forwards"]
+            stats["depth_sum"] += adaptive.last["depth"]
+            stats["nodes_sum"] += adaptive.last["nodes"]
         else:
             stats["forwards"] += 1 + static_depth
             stats["depth_sum"] += int(out[3].max())          # tree_position_ids

@@ -5,7 +5,7 @@ Harness for the "Should draft tree shape depend on the workload?" project. Two c
 | Path | Engine | Batch sizes | Use it for |
 | --- | --- | --- | --- |
 | A | SGLang (pinned tag) | 1, 8, 32 | Every throughput claim; the matched-budget sweep; SGLang auto and adaptive baselines |
-| B | Official EAGLE repo (pinned commit) | 1 | Exact reference runs, AR baseline from the same model object, losslessness checks, later TALON / static templates |
+| B | Official EAGLE repo (pinned commit) | 1 | Exact reference runs, AR baseline from the same model object, losslessness checks, later adaptive tree / static templates |
 
 Target `meta-llama/Llama-3.1-8B-Instruct` (gated: accept the licence on Hugging Face and run `huggingface-cli login`).
 Drafters: `yuhuili/EAGLE3-LLaMA3.1-Instruct-8B` (official, used by Path B) and
@@ -32,7 +32,7 @@ Not verified here: nothing was executed on a GPU, because the workspace that wro
 Candidate pool = `topk + (steps-1)*topk^2`; a config is valid only if `budget - 1 <= pool`
 (otherwise `torch.topk` fails). With `topk=1`, SGLang forces `budget = steps + 1`.
 `TreeConfig.validate()` enforces both. The EAGLE repo's eval default (`total_token=60, depth=5, top_k=10`)
-is `steps=6, topk=10, budget=60` here; TALON's EAGLE-3 baseline (K=10, D=8) is `steps=9`. SGLang's auto choice for Llama is `(5, 4, 8)`.
+is `steps=6, topk=10, budget=60` here; adaptive tree's EAGLE-3 baseline (K=10, D=8) is `steps=9`. SGLang's auto choice for Llama is `(5, 4, 8)`.
 
 ## Setup
 
@@ -57,7 +57,7 @@ Path B only), and run the cells top to bottom. The SGLang cell picks `v0.5.22` o
 **Run checkpoints (automatic).** `EagleRunner.run` appends to `<out>.jsonl.partial`, flushes and fsyncs after every
 question, and renames to `<out>.jsonl` only when the file is complete. Re-running the same command continues an
 interrupted file from the next unfinished question: a question is kept only if all its turns were written, a line cut
-off by a crash is dropped, and a checkpoint written with different settings (`_meta`: model, tree, TALON parameters,
+off by a crash is dropped, and a checkpoint written with different settings (`_meta`: model, tree, adaptive tree parameters,
 GPU name, library versions) is discarded so timings are never mixed. `--no-resume` forces a fresh start;
 `--skip-existing` (EAGLE and SGLang scripts) skips finished files. SGLang files are short (one bench x batch size)
 and are rewritten whole.
@@ -94,7 +94,7 @@ source .venv-sglang/bin/activate
 bash scripts/quickstart_sglang.sh
 ```
 
-Expect identical outputs at T=0 (fp16 near-ties can occasionally flip a token) and `tau` around 5-7 for this pair at budget 60 (TALON reports 5.4-7.1 MAT across the six benchmarks).
+Expect identical outputs at T=0 (fp16 near-ties can occasionally flip a token) and `tau` around 5-7 for this pair at budget 60 (adaptive tree reports 5.4-7.1 MAT across the six benchmarks).
 
 ## Running experiments
 
@@ -117,9 +117,9 @@ python scripts/summarize.py results/ --out results/summary.csv
 
 `--subset calib|test` (Path B) or `run.subset` (Path A) selects the frozen 30/70 split (hash of bench + question id).
 
-## TALON (adaptive draft trees)
+## adaptive tree (adaptive draft trees)
 
-`specdec/talon.py` implements TALON (Liu et al., arXiv 2601.07353, Algorithm 2) as a drop-in
+`specdec/adaptive.py` implements adaptive tree (Liu et al., arXiv 2601.07353, Algorithm 2) as a drop-in
 replacement for EAGLE-3's tree builder `ea_layer.topK_genrate`; verification is unchanged, so
 decoding stays lossless. Path B only (the paper evaluates batch size 1; SGLang has no hook for it).
 
@@ -134,18 +134,18 @@ decoding stays lossless. Path B only (the paper evaluates batch size 1; SGLang h
   update are the same operations as EAGLE's builder (pinned by tests against `cnets.py`).
 
 ```bash
-python scripts/quickstart_talon.py                        # one prompt: plain vs EAGLE-3 vs TALON
-python scripts/run_eagle.py --data-dir $EAGLE_DATA --bench all --talon --budget 60 --mu 0.03 \
-    --root-k 10 --out-dir results/eagle/talon_n60_mu0.03_k10
-EAGLE_DATA=$EAGLE_DATA bash scripts/run_talon_suite.sh    # paper setting + N and mu ablations
+python scripts/quickstart_adaptive.py                        # one prompt: plain vs EAGLE-3 vs adaptive tree
+python scripts/run_eagle.py --data-dir $EAGLE_DATA --bench all --adaptive --budget 60 --mu 0.03 \
+    --root-k 10 --out-dir results/eagle/adaptive_n60_mu0.03_k10
+EAGLE_DATA=$EAGLE_DATA bash scripts/run_adaptive_suite.sh    # paper setting + N and mu ablations
 ```
 
 The paper's EAGLE-3 baseline is K=10, D=8, N=60. Its Algorithm 1 runs D+1 = 9 draft layers, which
 is EAGLE-repo `depth=8`, i.e. `--steps 9 --topk 10 --budget 60` here (labelled
-`talon_eagle3_baseline` in the plan grid).
+`adaptive_eagle3_baseline` in the plan grid).
 
-Both static and TALON runs now record `draft_forwards`, `delta` (draft passes per verify pass,
-TALON's draft efficiency; it includes the tree built right after prefill), `mean_tree_depth` and
+Both static and adaptive tree runs now record `draft_forwards`, `delta` (draft passes per verify pass,
+adaptive tree's draft efficiency; it includes the tree built right after prefill), `mean_tree_depth` and
 `mean_tree_nodes` per turn; `summarize.py` adds `delta` and `mean_tree_depth` columns.
 
 Verification done without a GPU: an independent full-vocabulary reference of Algorithm 2 must
@@ -153,7 +153,7 @@ produce the identical tree (same nodes, same order) on 380+ random configuration
 draft layer reconstructs every node's path only from the attention mask and KV it is given and
 checks hidden routing and positions; outputs are compared with a literal port of EAGLE's
 retrieve-index code; 14 deliberately injected bugs (wrong anchor, missing root top-K, broken mask inheritance, polluted draft cache, ...) are all caught. When torch is installed, the same
-tests also run on `TorchOps`, so run `python -m unittest tests.test_talon -v` in `.venv-eagle`
+tests also run on `TorchOps`, so run `python -m unittest tests.test_adaptive -v` in `.venv-eagle`
 before the first real run.
 
 ## Measurement definitions

@@ -26,9 +26,9 @@ bash envs/setup_eagle_env.sh
 source .venv-eagle/bin/activate
 export EAGLE_DATA="$PWD/third_party/EAGLE/eagle/data"
 
-mkdir -p results/talon_three_bench
+mkdir -p results/adaptive_three_bench
 
 echo "GPU:"
 nvidia-smi
-echo "Starting TALON suite"
-bash scripts/run_talon_three_bench_suite.sh results/talon_three_bench
+echo "Starting adaptive tree suite"
+bash scripts/run_adaptive_three_bench_suite.sh results/adaptive_three_bench
