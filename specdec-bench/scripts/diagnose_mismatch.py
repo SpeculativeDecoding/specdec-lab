@@ -1,4 +1,3 @@
-%%writefile /content/specdec-bench/scripts/diagnose_mismatch.py
 #!/usr/bin/env python
 """Is each spec-vs-AR mismatch an fp16 near-tie or a real bug?
 
