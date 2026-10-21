@@ -37,7 +37,7 @@ import zipfile
 
 DEFAULT_REPOS = [
     "meta-llama/Llama-3.1-8B-Instruct",          # target
-    "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",       # Path B draft (EAGLE repo, TALON)
+    "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B",       # Path B draft (EAGLE repo, adaptive tree)
     "lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B",  # Path A draft (SGLang)
 ]
 IGNORE = ["original/*", "*.pth"]                 # Llama's consolidated Meta-format copy

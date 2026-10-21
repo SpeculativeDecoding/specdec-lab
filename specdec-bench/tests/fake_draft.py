@@ -1,6 +1,6 @@
-"""A fake EAGLE-3 draft layer (cnets.Model interface) for testing TALON without a GPU.
+"""A fake EAGLE-3 draft layer (cnets.Model interface) for testing adaptive tree without a GPU.
 
-It reproduces the interface TALON uses: __call__(hidden_states, input_ids,
+It reproduces the interface adaptive tree uses: __call__(hidden_states, input_ids,
 past_key_values, position_ids, use_cache) -> (out_hidden, past), lm_head, norm,
 logsoftmax, d2t, config.{vocab_size, draft_vocab_size}, reset(), stable_kv, tree_mask.
 
@@ -76,7 +76,7 @@ class FakeDraftLayer:
         self.paths.append(tuple(path))
         return len(self.paths) - 1
 
-    # ---- interface used by TALON
+    # ---- interface used by adaptive tree
     def reset(self):
         self.tree_mask = None
 

@@ -126,9 +126,9 @@ PLAN_GRID: Dict[int, List[TreeConfig]] = {
         TreeConfig(6, 6, 60),
         # == EAGLE repo eval default (total_token=60, depth=5, top_k=10)
         TreeConfig(6, 10, 60, "eagle_repo_default"),
-        # TALON paper's EAGLE-3 baseline: K=10, D=8, N=60. Its Algorithm 1 loops d = 0..D,
+        # adaptive tree paper's EAGLE-3 baseline: K=10, D=8, N=60. Its Algorithm 1 loops d = 0..D,
         # i.e. D + 1 draft layers (delta = D + 1), which is EAGLE-repo depth=8 = steps 9.
-        TreeConfig(9, 10, 60, "talon_eagle3_baseline"),
+        TreeConfig(9, 10, 60, "adaptive_eagle3_baseline"),
     ],
 }
 

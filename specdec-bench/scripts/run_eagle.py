@@ -14,9 +14,9 @@ Examples
   python scripts/run_eagle.py --data-dir ~/EAGLE/eagle/data --bench all --with-ar \
       --steps 6 --topk 10 --budget 60 --out-dir results/eagle/s6_k10_b60
 
-  # TALON (paper defaults: N=60, mu=0.03, K=10) on the same EAGLE-3 drafter
-  python scripts/run_eagle.py --data-dir ~/EAGLE/eagle/data --bench all --talon \
-      --budget 60 --mu 0.03 --root-k 10 --out-dir results/eagle/talon_n60_mu0.03_k10
+  # adaptive tree (paper defaults: N=60, mu=0.03, K=10) on the same EAGLE-3 drafter
+  python scripts/run_eagle.py --data-dir ~/EAGLE/eagle/data --bench all --adaptive \
+      --budget 60 --mu 0.03 --root-k 10 --out-dir results/eagle/adaptive_n60_mu0.03_k10
 """
 import argparse
 import os
@@ -27,11 +27,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from specdec.data import BENCHES, load_questions, select  # noqa: E402
+from specdec.data import BENCHES, load_questions, parse_benches, select  # noqa: E402
 from specdec.eagle_runner import (DEFAULT_BASE, DEFAULT_EAGLE3, EagleRunner,  # noqa: E402
                                   load_eagle_model)
 from specdec.metrics import pooled_tau, throughput  # noqa: E402
-from specdec.talon import TalonConfig  # noqa: E402
+from specdec.adaptive import AdaptiveConfig  # noqa: E402
 from specdec.tree_config import TreeConfig  # noqa: E402
 
 
@@ -45,7 +45,8 @@ def git_sha(path):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--data-dir", required=True, help="EAGLE/eagle/data")
-    p.add_argument("--bench", default="mt_bench", help=f"one of {BENCHES} or 'all'")
+    p.add_argument("--bench", default="mt_bench",
+                   help=f"one of {BENCHES}, a comma-separated list, or 'all'")
     p.add_argument("--subset", default="all", choices=["all", "calib", "test"])
     p.add_argument("--limit", type=int, default=0, help="first N questions per bench (0 = all)")
     p.add_argument("--max-turns", type=int, default=0, help="0 = all turns (MT-Bench has 2)")
@@ -54,11 +55,11 @@ def main():
     p.add_argument("--eagle1", action="store_true", help="draft is EAGLE-1 weights (use_eagle3=False)")
     p.add_argument("--steps", type=int, default=6, help="tree depth in layers (SGLang num_steps)")
     p.add_argument("--topk", type=int, default=10)
-    p.add_argument("--budget", type=int, default=60, help="verified nodes incl. root (SGLang num_draft_tokens; TALON N)")
-    p.add_argument("--talon", action="store_true", help="build draft trees with TALON (EAGLE-3 only)")
-    p.add_argument("--mu", type=float, default=0.03, help="TALON confidence threshold")
-    p.add_argument("--root-k", type=int, default=10, help="TALON top-K width of the root layer")
-    p.add_argument("--talon-max-depth", type=int, default=0, help="optional TALON depth cap (0 = none)")
+    p.add_argument("--budget", type=int, default=60, help="verified nodes incl. root (SGLang num_draft_tokens; adaptive tree N)")
+    p.add_argument("--adaptive", action="store_true", help="build draft trees with adaptive tree (EAGLE-3 only)")
+    p.add_argument("--mu", type=float, default=0.03, help="adaptive tree confidence threshold")
+    p.add_argument("--root-k", type=int, default=10, help="adaptive tree top-K width of the root layer")
+    p.add_argument("--adaptive-max-depth", type=int, default=0, help="optional adaptive tree depth cap (0 = none)")
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--max-new-tokens", type=int, default=1024)
     p.add_argument("--max-length", type=int, default=4096, help="KV cache size; keep fixed across runs")
@@ -75,24 +76,27 @@ def main():
     p.add_argument("--eagle-repo", default=os.environ.get("EAGLE_REPO", ""), help="for recording the commit")
     args = p.parse_args()
 
-    benches = list(BENCHES) if args.bench == "all" else [args.bench]
+    try:
+        benches = parse_benches(args.bench)
+    except ValueError as exc:
+        p.error(str(exc))
     if (len(benches) > 1 or args.with_ar) and not args.out_dir:
-        p.error("--out-dir is required with --bench all or --with-ar")
+        p.error("--out-dir is required with multiple benches or --with-ar")
     if len(benches) == 1 and not args.with_ar and not (args.out or args.out_dir):
         p.error("give --out or --out-dir")
 
-    if args.talon:
+    if args.adaptive:
         if args.eagle1:
-            p.error("--talon needs an EAGLE-3 drafter")
-        talon = TalonConfig(args.budget, args.mu, args.root_k, args.talon_max_depth).validate()
+            p.error("--adaptive needs an EAGLE-3 drafter")
+        adaptive = AdaptiveConfig(args.budget, args.mu, args.root_k, args.adaptive_max_depth).validate()
         tree = None
-        spec_name, spec_meta = talon.name, {"talon": talon.to_dict()}
+        spec_name, spec_meta = adaptive.name, {"adaptive": adaptive.to_dict()}
     else:
-        talon = None
+        adaptive = None
         tree = TreeConfig(args.steps, args.topk, args.budget).validate()
         spec_name, spec_meta = tree.name, {"tree": tree.to_dict()}
     model = load_eagle_model(tree, args.base_model, args.ea_model,
-                             use_eagle3=not args.eagle1, dtype=args.dtype, talon=talon)
+                             use_eagle3=not args.eagle1, dtype=args.dtype, adaptive=adaptive)
     runner = EagleRunner(model, max_new_tokens=args.max_new_tokens,
                          max_length=args.max_length, temperature=args.temperature)
 
@@ -104,7 +108,7 @@ def main():
         for mode in modes:
             meta = {"path": "eagle_repo", "bench": bench, "mode": mode, "subset": args.subset,
                     "tree": spec_meta.get("tree") if mode == "spec" else None,
-                    "talon": spec_meta.get("talon") if mode == "spec" else None,
+                    "adaptive": spec_meta.get("adaptive") if mode == "spec" else None,
                     "base_model": args.base_model, "ea_model": args.ea_model,
                     "use_eagle3": not args.eagle1, "temperature": args.temperature,
                     "max_new_tokens": args.max_new_tokens, "max_length": args.max_length,

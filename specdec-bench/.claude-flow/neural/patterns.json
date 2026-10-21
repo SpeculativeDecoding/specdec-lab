@@ -804,7 +804,7 @@
   {
     "id": "pattern-1792517237046-arye",
     "type": "action",
-    "content": "Command `cat scripts/run_eagle.py scripts/run_sglang_sweep.py scripts/summarize.py scripts/check_lossless.py scripts/diagnose_mismatch.py; cat configs/*.yaml scripts/run_talon_suite.sh` exited 0 (success)",
+    "content": "Command `cat scripts/run_eagle.py scripts/run_sglang_sweep.py scripts/summarize.py scripts/check_lossless.py scripts/diagnose_mismatch.py; cat configs/*.yaml scripts/run_adaptive_suite.sh` exited 0 (success)",
     "embedding": [
       0.016014128923416138,
       0.03162847459316254,
@@ -1194,7 +1194,7 @@
     "confidence": 1,
     "metadata": {
       "hook": "post-command",
-      "command": "cat scripts/run_eagle.py scripts/run_sglang_sweep.py scripts/summarize.py scripts/check_lossless.py scripts/diagnose_mismatch.py; cat configs/*.yaml scripts/run_talon_suite.sh",
+      "command": "cat scripts/run_eagle.py scripts/run_sglang_sweep.py scripts/summarize.py scripts/check_lossless.py scripts/diagnose_mismatch.py; cat configs/*.yaml scripts/run_adaptive_suite.sh",
       "exitCode": 0,
       "success": true
     },
