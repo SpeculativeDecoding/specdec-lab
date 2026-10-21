@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# Compare TALON across a representative subset of workloads: HumanEval (focused
-# code generation), Alpaca (general single-turn instructions), and MT-Bench
-# (broad multi-turn dialogue). Includes the paper setting and budget/mu ablations.
+# Reproduce TALON's Llama-3.1-8B setting and budget/mu ablations across the
+# selected benchmarks. Defaults to all available benchmarks.
 #
-#   EAGLE_DATA=third_party/EAGLE/eagle/data bash scripts/run_talon_suite.sh [results/talon_three_bench]
+#   EAGLE_DATA=third_party/EAGLE/eagle/data bash scripts/run_talon_suite.sh [results/talon]
+#   BENCHES=humaneval,alpaca,mt_bench bash scripts/run_talon_suite.sh [results/custom]
 #
 # Safe to re-run after an interruption: finished outputs are skipped.
 # Every run uses the same draft weights (yuhuili/EAGLE3-LLaMA3.1-Instruct-8B), T=0, 1024 new tokens.
 set -euo pipefail
-OUT=${1:-results/talon_three_bench}
+OUT=${1:-results/talon}
 DATA=${EAGLE_DATA:?set EAGLE_DATA to EAGLE/eagle/data}
 TEMP=${TEMP:-0}
-BENCHES=humaneval,alpaca,mt_bench
+BENCHES=${BENCHES:-all}
 COMMON=(--data-dir "$DATA" --bench "$BENCHES" --temperature "$TEMP" --max-new-tokens 1024 --skip-existing)
 
 # 1) EAGLE-3 baseline as in the paper (K=10, D=8, N=60 -> steps 9) + plain decoding, one load

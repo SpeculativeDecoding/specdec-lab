@@ -31,4 +31,4 @@ mkdir -p results/talon_three_bench
 echo "GPU:"
 nvidia-smi
 echo "Starting TALON suite"
-bash scripts/run_talon_suite.sh results/talon_three_bench
+bash scripts/run_talon_three_bench_suite.sh results/talon_three_bench

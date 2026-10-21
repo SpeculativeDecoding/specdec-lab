@@ -72,6 +72,18 @@ class TestTreeConfig(unittest.TestCase):
 
 # ----------------------------------------------------------------------------- data
 class TestData(unittest.TestCase):
+    def test_talon_suite_entry_points(self):
+        with open(os.path.join(ROOT, "scripts", "run_talon_suite.sh"), encoding="utf-8") as f:
+            full_suite = f.read()
+        with open(os.path.join(ROOT, "scripts", "run_talon_three_bench_suite.sh"), encoding="utf-8") as f:
+            subset_suite = f.read()
+        with open(os.path.join(ROOT, "chtc", "job_talon.sh"), encoding="utf-8") as f:
+            chtc_job = f.read()
+
+        self.assertIn("BENCHES=${BENCHES:-all}", full_suite)
+        self.assertIn("export BENCHES=humaneval,alpaca,mt_bench", subset_suite)
+        self.assertIn("run_talon_three_bench_suite.sh", chtc_job)
+
     def test_parse_benches(self):
         self.assertEqual(data.parse_benches("all"), list(data.BENCHES))
         self.assertEqual(data.parse_benches("humaneval, alpaca,mt_bench"),

@@ -42,6 +42,12 @@ interrupted configuration must be rerun.
 
 ## Time and resources
 
+The full suite remains available as `bash scripts/run_talon_suite.sh`, which
+runs all six benchmarks by default. For a custom selection, set `BENCHES` to a
+comma-separated list. The CHTC job uses
+`bash scripts/run_talon_three_bench_suite.sh` to run only the three benchmarks
+listed above.
+
 The suite runs 12 speculative configurations plus a plain autoregressive
 baseline across three datasets (80 questions each; MT-Bench has two turns per
 question), with up to 1,024 generated tokens per turn. That is 4,160
