@@ -19,6 +19,16 @@ from typing import Dict, List, Sequence, Tuple
 
 BENCHES = ("mt_bench", "humaneval", "gsm8k", "alpaca", "sum", "qa")
 
+
+def parse_benches(value: str) -> List[str]:
+    """Expand 'all' or validate a comma-separated list of benchmark names."""
+    benches = list(BENCHES) if value == "all" else [name.strip() for name in value.split(",")]
+    if not benches or any(bench not in BENCHES for bench in benches):
+        raise ValueError(f"benchmarks must be 'all' or names from {BENCHES}")
+    if len(set(benches)) != len(benches):
+        raise ValueError("benchmark list cannot contain duplicates")
+    return benches
+
 # Verbatim from SafeAILab/EAGLE eagle/evaluation/gen_ea_answer_llama3chat.py
 # (note the two spaces after "safe.").
 SYSTEM_PROMPT = (

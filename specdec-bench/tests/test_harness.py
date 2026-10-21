@@ -72,6 +72,14 @@ class TestTreeConfig(unittest.TestCase):
 
 # ----------------------------------------------------------------------------- data
 class TestData(unittest.TestCase):
+    def test_parse_benches(self):
+        self.assertEqual(data.parse_benches("all"), list(data.BENCHES))
+        self.assertEqual(data.parse_benches("humaneval, alpaca,mt_bench"),
+                         ["humaneval", "alpaca", "mt_bench"])
+        for invalid in ("", "humaneval,unknown", "alpaca,alpaca"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                data.parse_benches(invalid)
+
     def test_encode_and_truncate(self):
         tok = FakeTokenizer()
         msgs = data.initial_messages() + [{"role": "user", "content": "hi"}]

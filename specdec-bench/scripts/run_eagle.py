@@ -27,7 +27,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
-from specdec.data import BENCHES, load_questions, select  # noqa: E402
+from specdec.data import BENCHES, load_questions, parse_benches, select  # noqa: E402
 from specdec.eagle_runner import (DEFAULT_BASE, DEFAULT_EAGLE3, EagleRunner,  # noqa: E402
                                   load_eagle_model)
 from specdec.metrics import pooled_tau, throughput  # noqa: E402
@@ -45,7 +45,8 @@ def git_sha(path):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--data-dir", required=True, help="EAGLE/eagle/data")
-    p.add_argument("--bench", default="mt_bench", help=f"one of {BENCHES} or 'all'")
+    p.add_argument("--bench", default="mt_bench",
+                   help=f"one of {BENCHES}, a comma-separated list, or 'all'")
     p.add_argument("--subset", default="all", choices=["all", "calib", "test"])
     p.add_argument("--limit", type=int, default=0, help="first N questions per bench (0 = all)")
     p.add_argument("--max-turns", type=int, default=0, help="0 = all turns (MT-Bench has 2)")
@@ -75,9 +76,12 @@ def main():
     p.add_argument("--eagle-repo", default=os.environ.get("EAGLE_REPO", ""), help="for recording the commit")
     args = p.parse_args()
 
-    benches = list(BENCHES) if args.bench == "all" else [args.bench]
+    try:
+        benches = parse_benches(args.bench)
+    except ValueError as exc:
+        p.error(str(exc))
     if (len(benches) > 1 or args.with_ar) and not args.out_dir:
-        p.error("--out-dir is required with --bench all or --with-ar")
+        p.error("--out-dir is required with multiple benches or --with-ar")
     if len(benches) == 1 and not args.with_ar and not (args.out or args.out_dir):
         p.error("give --out or --out-dir")
 

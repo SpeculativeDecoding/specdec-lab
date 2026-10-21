@@ -1,4 +1,5 @@
 .venv-*/
+.env
 third_party/
 results/
 __pycache__/
