@@ -4,3 +4,10 @@ third_party/
 results/
 __pycache__/
 *.pyc
+
+# SGLang server debug logs (written by scripts/run_sglang_sweep.py; analysis never reads them)
+server.log
+# local tool state, never part of the project
+.claude-flow/
+ruvector.db
+.DS_Store
