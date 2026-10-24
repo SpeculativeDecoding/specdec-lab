@@ -15,7 +15,7 @@ below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab n
 | `chtc_h200/adaptive_three_bench/` | CHTC H200 | Full suite: HumanEval, Alpaca, MT-Bench |
 | `chtc_l40s/adaptive_gsm8k_sum_qa/` | CHTC L40S | Full suite: GSM8K, Sum, QA |
 | `sglang_h200/` | CHTC H200 | Path A (SGLang): 21 shapes on all six benchmarks at batch sizes 1, 8, 32 |
-| `sglang_talon_bs8/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 8, all six benchmarks |
+| `sglang_talon_bs8_h200/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 8, all six benchmarks |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
@@ -138,7 +138,7 @@ tree). A shape-selection rule should therefore key on batch size first and workl
 
 ### 8. TALON-S at batch 8: TALON's rules alone do not help
 
-`sglang_talon_bs8/` compares, on one H200 at batch 8 across all six benchmarks, plain decoding,
+`sglang_talon_bs8_h200/` compares, on one H200 at batch 8 across all six benchmarks, plain decoding,
 EAGLE-3 and TALON-S on the same 9 × 10 tree with budget 60. TALON-S
 (`specdec/sglang_talon_plugin.py`) applies TALON's tree rules inside SGLang's drafter:
 - every one of the 10 root children is kept;
