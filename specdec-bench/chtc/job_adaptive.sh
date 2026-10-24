@@ -5,9 +5,11 @@ source .env
 : "${CHTC_USER:?Set CHTC_USER in .env}"
 : "${HF_TOKEN:?Set HF_TOKEN in .env with access to Llama-3.1-8B-Instruct}"
 
-# Arguments (set in job_adaptive.sub): comma-separated benchmarks and the results folder name
+# Arguments (set in job_adaptive.sub): comma-separated benchmarks, the results folder name and
+# the Path B script to run (scripts/run_adaptive_suite.sh or scripts/run_depth_grid.sh)
 BENCHES=${1:-humaneval,alpaca,mt_bench}
 RUN=${2:-adaptive_three_bench}
+SUITE=${3:-scripts/run_adaptive_suite.sh}
 
 SCRATCH=${_CONDOR_SCRATCH_DIR:-$PWD}
 SUBMIT_DIR=$PWD
@@ -73,5 +75,5 @@ mkdir -p "results/$RUN"
 
 echo "GPU:"
 nvidia-smi
-echo "Starting adaptive tree suite on $BENCHES -> results/$RUN"
-TEMP=0 BENCHES="$BENCHES" bash scripts/run_adaptive_suite.sh "results/$RUN"
+echo "Starting $SUITE on $BENCHES -> results/$RUN"
+TEMP=0 BENCHES="$BENCHES" bash "$SUITE" "results/$RUN"

@@ -5,12 +5,19 @@ endif
 if !defined RUN
   RUN = adaptive_three_bench
 endif
+if !defined SUITE
+  SUITE = scripts/run_adaptive_suite.sh
+endif
+# GPU: regular expression on the device name, e.g. GPU=H200 to keep a comparison on one GPU type
+if !defined GPU
+  GPU = .
+endif
 
 universe = container
 container_image = docker://pytorch/pytorch:2.6.0-cuda12.4-cudnn9-runtime
 
 executable = job_adaptive.sh
-arguments  = $(BENCHES) $(RUN)
+arguments  = $(BENCHES) $(RUN) $(SUITE)
 initial_dir = .
 
 log    = logs/adaptive.$(Cluster).log
@@ -29,7 +36,8 @@ request_gpus   = 1
 requirements = (Target.CUDADriverVersion >= 12.4) && \
                (Target.GPUs_GlobalMemoryMb >= 40000) && \
                (Target.GPUs_Capability >= 8.0) && (Target.GPUs_Capability <= 9.0) && \
-               !regexp("MIG", Target.GPUs_DeviceName)
+               !regexp("MIG", Target.GPUs_DeviceName) && \
+               regexp("$(GPU)", Target.GPUs_DeviceName)
 
 +WantGPULab   = true
 +WantFlocking = false
