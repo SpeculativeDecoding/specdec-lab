@@ -73,6 +73,61 @@ excludes 1.00 means the method is reliably different from EAGLE-3 on these quest
   narrow ones (20 × 4, 40 × 2) lose 15–60% against 8 × 10 (tables below). Deeper trees accept more
   tokens per step but pay one draft pass per layer.
 
+### Acceptance (τ) and drafting cost behind the headline
+
+Same test questions. τ is tokens accepted per verification step of the target model, and "draft
+passes" is drafter forward passes per step. Speed depends on both: more accepted tokens per step,
+but each draft pass costs time.
+
+| Workload | EAGLE-3 τ / passes | TALON τ / passes | Ours τ / passes |
+| --- | --- | --- | --- |
+| HumanEval | 7.05 / 9.2 | **7.21** / 8.6 | 7.05 / 9.2 (8 × 10) |
+| GSM8K | **6.36** / 9.3 | 6.15 / 7.2 | **6.36** / 9.3 (8 × 10) |
+| MT-Bench | **6.52** / 9.2 | 6.33 / 7.1 | **6.52** / 9.2 (8 × 10) |
+| Alpaca | **6.98** / 9.3 | 6.46 / 6.7 | **6.98** / 9.3 (8 × 10) |
+| Sum | **5.48** / 9.2 | 5.23 / 6.1 | 5.23 / 7.1 (6 × 10) |
+| QA | **5.38** / 9.3 | 5.14 / 5.8 | 5.14 / 7.2 (6 × 10) |
+
+- **TALON accepts fewer tokens per step than EAGLE-3 on five of six workloads** (HumanEval is the
+  exception) but runs 1.5–3.5 fewer draft passes, because it stops drafting once its budget is
+  spent. The two effects cancel on code, math, dialogue and instructions, and favour TALON on
+  summaries and QA. Lower τ alone is therefore not a weakness.
+- **On Sum and QA, the faster methods accept fewer tokens.** "Ours" (6 × 10) and TALON accept about
+  5% less than EAGLE-3 there, yet run 4–7% faster: on unpredictable text EAGLE-3's last two layers
+  are rarely accepted, so they cost more than they return.
+- **τ alone would pick the wrong tree.** τ rises with depth on every workload and levels off around
+  depth 12–20 (table below), yet depth 20 is 25–30% slower than depth 8. Throughput decides; τ
+  explains it.
+
+τ by depth (width 10, all questions):
+
+| Depth | HumanEval | GSM8K | MT-Bench | Alpaca | Sum | QA |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 2.86 | 2.89 | 2.89 | 2.94 | 2.82 | 2.79 |
+| 2 | 3.70 | 3.75 | 3.75 | 3.84 | 3.57 | 3.56 |
+| 4 | 5.16 | 5.14 | 5.08 | 5.33 | 4.64 | 4.62 |
+| 6 | 6.30 | 6.00 | 5.98 | 6.34 | 5.23 | 5.32 |
+| 8 (EAGLE-3) | 7.07 | 6.42 | 6.48 | 6.92 | 5.47 | 5.58 |
+| 12 | 7.62 | 6.62 | 6.78 | 7.25 | 5.62 | 5.74 |
+| 20 | 7.69 | 6.61 | 6.87 | 7.24 | 5.64 | 5.79 |
+| TALON | 7.22 | 6.17 | 6.25 | 6.41 | 5.21 | 5.47 |
+
+### Relation to the TALON paper
+
+The paper reports that TALON consistently outperforms EAGLE-3. Here it matches EAGLE-3 on code,
+math, dialogue and instructions (within ±1%, intervals include 1.00) and beats it by 4–7% on
+summaries and QA: a partial reproduction, not a refutation. Possible reasons for the gap, not yet
+checked:
+- **Our TALON is a reimplementation** of Algorithm 2 (`specdec/adaptive.py`), not the authors' code.
+- **One model and one GPU type** (Llama-3.1-8B on H200). TALON's QA/Sum gain was also seen on an
+  A100 but not on an L40S.
+- **80 questions per workload, one run each.**
+- **The EAGLE-3 baseline tree** (8 × 10, budget 60) is taken to be the paper's setting but has not
+  been checked against its text.
+
+TALON-S (Path A, sections 8 and 9) is our port of TALON's rules into SGLang's fixed-shape drafter.
+It cannot skip draft passes, so its slowdown there says nothing about the paper's batch-1 claim.
+
 Regenerate with
 `python scripts/compare_vs_eagle3.py results/depth_grid_*_h200 results/dxw80_sweep_*_h200 results/width_grid_*_h200 --out results/summary_vs_eagle3.csv`.
 
