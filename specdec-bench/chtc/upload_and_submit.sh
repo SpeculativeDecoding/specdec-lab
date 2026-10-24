@@ -14,6 +14,7 @@ source "$HERE/.env"
 set +a
 : "${CHTC_USER:?Set CHTC_USER in chtc/.env}"
 HOST=${CHTC_HOST:-ap2001.chtc.wisc.edu}
+SUB=${SUB:-job_adaptive.sub}   # SUB=job_sglang.sub for Path A
 REMOTE="${CHTC_USER}@${HOST}"
 ARCHIVE=$(mktemp "${TMPDIR:-/tmp}/specdec-bench.XXXXXX.tar.gz")
 trap 'rm -f "$ARCHIVE"' EXIT
@@ -32,4 +33,4 @@ scp "$ARCHIVE" "$REMOTE:~/specdec-bench/chtc/specdec-bench.tar.gz"
 rsync -av --exclude='.env' --exclude='logs/' "$HERE/" "$REMOTE:~/specdec-bench/chtc/"
 scp "$HERE/.env" "$REMOTE:~/specdec-bench/chtc/.env"
 # extra arguments go to condor_submit, e.g. BENCHES=gsm8k,sum,qa RUN=adaptive_gsm8k_sum_qa
-ssh -t "$REMOTE" "cd ~/specdec-bench/chtc && trap 'rm -f .env specdec-bench.tar.gz' EXIT && condor_submit -spool $* job_adaptive.sub"
+ssh -t "$REMOTE" "cd ~/specdec-bench/chtc && trap 'rm -f .env specdec-bench.tar.gz' EXIT && condor_submit -spool $* $SUB"

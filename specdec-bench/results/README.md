@@ -2,8 +2,8 @@
 
 All runs use Llama-3.1-8B-Instruct as the target and the official EAGLE-3 drafter
 (`yuhuili/EAGLE3-LLaMA3.1-Instruct-8B`), batch size 1, greedy decoding (T=0), up to 1,024 new
-tokens per turn and 80 questions per benchmark (MT-Bench has two turns per question). Each folder
-below is one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab notebook, or the CHTC job):
+tokens per turn and 80 questions per benchmark (MT-Bench has two turns per question). The Path B folders
+below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab notebook, or the CHTC job):
 
 - **EAGLE-3:** fixed tree, K=10 children per node, depth 8 (`steps=9`), at budgets N = 32, 48, 60, 96.
 - **TALON (adaptive tree):** the same budgets with mu=0.03, plus mu = 0.01, 0.02, 0.04, 0.05 at N=60.
@@ -14,6 +14,7 @@ below is one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab noteboo
 | `adaptive_three_bench/` | Colab A100 | Full suite: GSM8K, Sum, QA. Main comparison only (N=60): HumanEval, Alpaca |
 | `chtc_h200/adaptive_three_bench/` | CHTC H200 | Full suite: HumanEval, Alpaca, MT-Bench |
 | `chtc_l40s/adaptive_gsm8k_sum_qa/` | CHTC L40S | Full suite: GSM8K, Sum, QA |
+| `sglang_h200/` | CHTC H200 | Path A (SGLang): 21 shapes on all six benchmarks at batch sizes 1, 8, 32 |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
@@ -85,6 +86,55 @@ depth goes from 5.5 to 7.9) and raises τ. Throughput barely changes: mu = 0.01 
 to 0.05 are within a few percent of each other, and the paper's default of 0.03 is within about 3.5% of the best. Tuning mu per
 workload would gain little.
 
+## Path A: SGLang at batch sizes 1, 8 and 32
+
+`sglang_h200/` holds the matched-budget sweep from the proposal, run in SGLang v0.5.22 (official
+container) on one H200 with SGLang's EAGLE-3 drafter (`lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B`).
+It has 21 server configurations on all six benchmarks at batch sizes 1, 8 and 32, which makes 378
+runs with no failed requests:
+
+- **Plain decoding:** the speedup baseline.
+- **SGLang's own modes:** auto (5 steps × 4 children, budget 8) and adaptive (chain only).
+- **Three chains:** budgets 4, 8 and 16.
+- **Matched-budget trees:** five depth × width splits at each of budgets 16, 32 and 60, plus the
+  EAGLE repo's default tree and the TALON paper's EAGLE-3 tree (9 × 10, budget 60).
+
+Plain decoding gets about 22× faster from batch 1 to batch 32 (208, 1,439 and 4,581 tok/s on average).
+
+### 6. Batch size decides the shape
+
+Speedup over plain decoding, geometric mean of the six workloads:
+
+| Shape | Budget | Batch 1 | Batch 8 | Batch 32 |
+| --- | --- | --- | --- | --- |
+| Chain, 3 deep | 4 | 2.35× | 2.20× | **1.81×** |
+| Chain, 7 deep | 8 | **2.68×** | **2.49×** | 1.74× |
+| Tree 7 × 2 | 16 | 2.46× | 2.07× | 1.16× |
+| Tree 6 × 3 | 32 | 2.49× | 1.84× | 0.83× |
+| Tree 9 × 10 (TALON's EAGLE-3) | 60 | 2.67× | 1.45× | 0.58× |
+| SGLang adaptive | chain | 2.48× | 2.22× | 1.54× |
+| SGLang auto | 8 | 2.45× | 2.09× | 1.02× |
+
+At batch 1, large trees and a 7-deep chain are about equally good. As the batch grows, the GPU has
+no spare compute, so every extra draft token costs real time. At batch 32, every budget-32 and
+budget-60 tree is *slower* than plain decoding (0.5–0.9×), and the best shape is the 3-token chain.
+Within each budget the best shape also moves towards deeper and narrower as the batch grows: at
+batch 32 and budget 16, the chain beats every branching tree on all six workloads.
+
+### 7. Within a budget, the workload effect is real but small
+
+At batch 1 the proposal's hypothesis holds: for the same budget, the fastest split moves from deep
+to wide as the workload gets less predictable. At budget 32, HumanEval is fastest with 9 × 2;
+GSM8K, MT-Bench and Alpaca with 6 × 3; and Sum and QA with 5 × 4. Budgets 16 and 60 show the same
+shift. The deepest tree has the highest τ on every workload. Wider trees win on Sum and QA because
+the extra depth is rarely accepted there.
+
+Choosing the shape per workload gains at most about 4% over the best single shape at that budget
+(QA: 2.30× vs 2.22×). Across all shapes, a per-workload choice beats the best single fixed shape
+by 1.7% at batch 1, 0% at batch 8 and 0.4% at batch 32. Matching the shape to the batch size is
+worth up to 3.4× (at batch 32: 1.81× for the 3-token chain vs 0.53× for the EAGLE repo's default
+tree). A shape-selection rule should therefore key on batch size first and workload second.
+
 ## Correctness
 
 At T=0, speculative decoding should reproduce plain decoding exactly. Comparing token IDs on the A100
@@ -96,7 +146,8 @@ been run on these files.
 
 ## Caveats
 
-- Batch size 1 only. The SGLang sweep at batch sizes 8 and 32 has not been run yet.
+- Path B is batch size 1 only. Path A covers batch sizes 8 and 32, but with fixed shapes and SGLang's own drafter, not TALON.
+- Path A ran SGLang with `SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1`, since its EAGLE-3 drafter declares a 2,048-token context. Whether any Sum prompt plus answer goes past 2,048 tokens has not been checked yet.
 - 80 questions per benchmark. Speedup confidence intervals in `summary.csv` compare each method with
   plain decoding, not TALON with EAGLE-3 directly. A paired bootstrap would be needed to call the
   A100 QA/Sum gains significant.
