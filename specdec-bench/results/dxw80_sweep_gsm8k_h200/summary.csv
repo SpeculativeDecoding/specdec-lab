@@ -1,0 +1,11 @@
+path,config,mode,bench,batch_size,temperature,steps,topk,budget,mu,root_k,n_turns,throughput_tok_s,tau,delta,mean_tree_depth,speedup,speedup_ci_lo,speedup_ci_hi,errors
+eagle_repo,ar,ar,gsm8k,1,0.0,,,,,,80,44.81,,,,,,,0
+eagle_repo,eagle3_s11_k8_b60,spec,gsm8k,1,0.0,11,8,60,,,80,167.52,6.5697,11.3753,10.071,3.7385,3.6465,3.8367,0
+eagle_repo,eagle3_s17_k5_b60,spec,gsm8k,1,0.0,17,5,60,,,80,136.42,6.4971,17.5724,11.125,3.0445,2.9618,3.1308,0
+eagle_repo,eagle3_s21_k4_b60,spec,gsm8k,1,0.0,21,4,60,,,80,119.91,6.3915,21.6945,11.509,2.676,2.5962,2.7581,0
+eagle_repo,eagle3_s2_k80_b60,spec,gsm8k,1,0.0,2,80,60,,,80,110.01,2.9073,2.0303,2.0,2.4552,2.4389,2.4714,0
+eagle_repo,eagle3_s3_k40_b60,spec,gsm8k,1,0.0,3,40,60,,,80,135.42,3.7704,3.0591,3.0,3.0222,2.9936,3.0488,0
+eagle_repo,eagle3_s41_k2_b60,spec,gsm8k,1,0.0,41,2,60,,,80,69.7,5.5692,42.1875,16.477,1.5556,1.5116,1.6042,0
+eagle_repo,eagle3_s5_k20_b60,spec,gsm8k,1,0.0,5,20,60,,,80,156.11,5.1345,5.1338,4.998,3.4839,3.4331,3.5364,0
+eagle_repo,eagle3_s6_k16_b60,spec,gsm8k,1,0.0,6,16,60,,,80,172.3,5.6058,6.1742,5.995,3.8453,3.7808,3.9118,0
+eagle_repo,eagle3_s9_k10_b60,spec,gsm8k,1,0.0,9,10,60,,,80,177.89,6.4186,9.2999,8.793,3.9701,3.8791,4.063,0
