@@ -4,8 +4,8 @@ server:
   draft_model_path: lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B
   algorithm: EAGLE3
   dtype: float16
-  max_running_requests: 8
-  cuda_graph_max_bs: 8
+  max_running_requests: 32
+  cuda_graph_max_bs: 32
   mem_fraction_static: 0.80
   disable_radix_cache: true
   port: 30000
@@ -16,7 +16,7 @@ servers:
       - {steps: 6, topk: 10, num_draft_tokens: 60, label: eagle_repo_default}
 run:
   benches: [mt_bench, humaneval]
-  batch_sizes: [1, 8]
+  batch_sizes: [1, 8, 16, 32]
   temperatures: [0.0]
   limit: 10
   max_turns: 1

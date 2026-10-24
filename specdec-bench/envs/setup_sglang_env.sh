@@ -19,6 +19,11 @@ if [ ! -d "$WORK/sglang" ]; then
   git clone --branch "$SGLANG_TAG" --depth 1 https://github.com/sgl-project/sglang.git "$WORK/sglang"
 fi
 cd "$WORK/sglang"
+# Skip Rust extensions if cargo is not installed (Colab doesn't have Rust by default)
+if ! command -v cargo &> /dev/null; then
+  echo "cargo not found, building without Rust extensions"
+  export SGLANG_BUILD_RUST_EXTS=none
+fi
 uv pip install -e "python" --prerelease=allow
 cd - >/dev/null
 uv pip install pyyaml requests numpy

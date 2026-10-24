@@ -33,7 +33,7 @@ def expand_servers(cfg):
     for entry in cfg["servers"]:
         mode = entry["mode"]
         base = dict(common)
-        base.update({k: v for k, v in entry.items() if k not in ("mode", "trees", "plan_budgets")})
+        base.update({k: v for k, v in entry.items() if k not in ("mode", "trees", "plan_budgets", "talon")})
         if mode == "spec":
             trees = [from_dict(t) for t in entry.get("trees", [])]
             for b in entry.get("plan_budgets", []):
@@ -45,6 +45,18 @@ def expand_servers(cfg):
             s = ServerSpec(mode="adaptive", **base)
             if st:
                 s.adaptive_start = from_dict(st)
+            specs.append(s)
+        elif mode == "talon":
+            # TALON-S: confidence-gated adaptive trees
+            talon_cfg = entry.get("talon", {})
+            s = ServerSpec(
+                mode="talon",
+                talon_budget=int(talon_cfg.get("budget", 60)),
+                talon_mu=float(talon_cfg.get("mu", 0.03)),
+                talon_root_k=int(talon_cfg.get("root_k", 10)),
+                talon_steps=int(talon_cfg.get("num_steps", 9)),
+                **base
+            )
             specs.append(s)
         else:
             specs.append(ServerSpec(mode=mode, **base))

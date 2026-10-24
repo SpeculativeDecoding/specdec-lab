@@ -1,0 +1,52 @@
+# TALON smoke test: TALON-S vs static EAGLE-3 twin
+# Phase 3 from the benchmark protocol: 10 questions, batch sizes 1 and 8
+#
+# Tests:
+#   1. Plain AR (speedup denominator)
+#   2. Static EAGLE-3 twin (K=10, D=8, N=60)
+#   3. TALON-S (N=60, mu=0.03, K=10) - confidence-gated selection
+#
+# Verification:
+#   - TALON server must have server.log.talon.jsonl with patched=true
+#   - No request errors (n_errors = 0)
+#   - Lossless at batch 1 (outputs match AR)
+#   - tau in sensible range (4-7 at batch 1)
+
+server:
+  model_path: meta-llama/Llama-3.1-8B-Instruct
+  draft_model_path: lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B
+  algorithm: EAGLE3
+  dtype: float16
+  max_running_requests: 32
+  cuda_graph_max_bs: 32
+  mem_fraction_static: 0.80
+  disable_radix_cache: true
+  port: 30000
+
+servers:
+  # Plain AR baseline
+  - mode: ar
+
+  # Static EAGLE-3 twin (same tree shape as TALON-S)
+  - mode: spec
+    trees:
+      - {steps: 9, topk: 10, num_draft_tokens: 60, label: eagle3_s9_k10_b60}
+
+  # TALON-S: confidence-gated adaptive selection
+  # Algorithm 2 from Liu et al., arXiv 2601.07353
+  - mode: talon
+    talon:
+      budget: 60      # N: total verified nodes
+      mu: 0.03        # confidence threshold
+      root_k: 10      # K: forced top-K at layer 0
+      num_steps: 9    # tree depth
+
+run:
+  benches: [mt_bench, humaneval]
+  batch_sizes: [1, 8]
+  temperatures: [0.0]
+  limit: 10
+  max_turns: 1
+  max_new_tokens: 512
+  repeat_prompts_for_batch: {}
+  warmup_questions: 2

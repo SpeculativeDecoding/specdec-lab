@@ -117,11 +117,11 @@ python scripts/summarize.py results/ --out results/summary.csv
 
 `--subset calib|test` (Path B) or `run.subset` (Path A) selects the frozen 30/70 split (hash of bench + question id).
 
-## Adaptive tree (adaptive draft trees)
+## TALON (adaptive draft trees)
 
-`specdec/adaptive.py` implements adaptive tree (Liu et al., arXiv 2601.07353, Algorithm 2) as a drop-in
-replacement for EAGLE-3's tree builder `ea_layer.topK_genrate`; verification is unchanged, so
-decoding stays lossless. Path B only (the paper evaluates batch size 1; SGLang has no hook for it).
+`specdec/talon.py` (aliased from `specdec/adaptive.py`) implements TALON (Liu et al., arXiv 2601.07353,
+Algorithm 2) as a drop-in replacement for EAGLE-3's tree builder `ea_layer.topK_genrate`; verification
+is unchanged, so decoding stays lossless. Path B only (the paper evaluates batch size 1).
 
 - Budget `N` counts the root (Algorithm 2 starts with `T = {x_t}`), so `N` equals EAGLE `total_token` / SGLang `num_draft_tokens`.
 - Layer 0: forced top-K children of the root (K = 10). Layers d >= 1: keep every child whose
@@ -144,8 +144,8 @@ The paper's EAGLE-3 baseline is K=10, D=8, N=60. Its Algorithm 1 runs D+1 = 9 dr
 is EAGLE-repo `depth=8`, i.e. `--steps 9 --topk 10 --budget 60` here (labelled
 `adaptive_eagle3_baseline` in the plan grid).
 
-Both static and adaptive tree runs now record `draft_forwards`, `delta` (draft passes per verify pass,
-adaptive tree's draft efficiency; it includes the tree built right after prefill), `mean_tree_depth` and
+Both static and TALON runs now record `draft_forwards`, `delta` (draft passes per verify pass,
+TALON's draft efficiency; it includes the tree built right after prefill), `mean_tree_depth` and
 `mean_tree_nodes` per turn; `summarize.py` adds `delta` and `mean_tree_depth` columns.
 
 Verification done without a GPU: an independent full-vocabulary reference of Algorithm 2 must
@@ -155,6 +155,52 @@ checks hidden routing and positions; outputs are compared with a literal port of
 retrieve-index code; 14 deliberately injected bugs (wrong anchor, missing root top-K, broken mask inheritance, polluted draft cache, ...) are all caught. When torch is installed, the same
 tests also run on `TorchOps`, so run `python -m unittest tests.test_adaptive -v` in `.venv-eagle`
 before the first real run.
+
+## TALON inside SGLang (Path A, batch sizes 1 / 8 / 32)
+
+`specdec/talon_sglang.py` + `specdec/sglang_talon_patch.py` implement TALON's node-selection rule
+inside SGLang's EAGLE-3 drafter. This is **Path A**: it runs at batch sizes 1, 8, and 32, unlike
+Path B which is batch 1 only.
+
+**Plugin architecture.** The patch is installed through SGLang's plugin entry point
+(`pyproject.toml`, group `sglang.srt.plugins`). It only replaces `select_top_k_tokens` and does
+nothing unless the server is started with `SPECDEC_TALON=1`, which `ServerSpec(mode="talon")` sets.
+
+**TALON-S (capped variant).** SGLang uses fixed tensor shapes, so TALON is capped at `topk` nodes
+per layer and `steps` layers. When a cap binds, free slots are filled by EAGLE-2's rule. This
+variant is called **TALON-S** in reports. TALON's early-stop of drafting (lower delta) cannot
+happen in this path. Full TALON claims come only from Path B.
+
+**Twin servers.** Every TALON server has a static EAGLE-3 "twin" with the same `--speculative-num-steps`,
+`--speculative-eagle-topk` and `--speculative-num-draft-tokens`. Same draft passes, same number of
+verified tokens; only the choice of tree nodes differs.
+
+**Safety check.** Each SGLang draft worker appends a line to `<out>/<server>/server.log.talon.jsonl`
+when TALON is active with matching settings; the launcher (`Server._check_talon`) refuses to
+benchmark a TALON server without it.
+
+```bash
+# Smoke test: TALON-S vs static EAGLE-3 twin (10 questions, batch 1 and 8)
+source .venv-sglang/bin/activate
+pip install -e .   # register the plugin
+python -c "from importlib.metadata import entry_points as e; print([x.value for x in e(group='sglang.srt.plugins')])"
+# Expected: includes 'specdec.sglang_talon_patch:plugin'
+
+python scripts/run_sglang_sweep.py --config configs/smoke_talon.yaml --data-dir $EAGLE_DATA \
+    --out-dir results/talon_sglang_smoke --skip-existing
+
+# Full sweep: TALON-S vs EAGLE-3 at mu 0.01/0.03/0.1 (many hours)
+python scripts/run_sglang_sweep.py --config configs/sweep_talon_sglang.yaml --data-dir $EAGLE_DATA \
+    --out-dir results/talon_sglang --skip-existing
+```
+
+Configuration via environment variables:
+- `SPECDEC_TALON=1` enables the plugin
+- `SPECDEC_TALON_BUDGET=60` sets N (verified nodes including root)
+- `SPECDEC_TALON_MU=0.03` sets the confidence threshold
+- `SPECDEC_TALON_ROOT_K=10` sets K (forced top-K at layer 0)
+- `SPECDEC_TALON_NUM_STEPS=9` sets tree depth
+- `SPECDEC_TALON_OUT_DIR=<path>` where to write the marker file
 
 ## Measurement definitions
 

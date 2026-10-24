@@ -1,0 +1,125 @@
+# TALON vs EAGLE-3 sweep on SGLang (Phase 4)
+# Runs 14+ server configurations x 6 benchmarks x batch sizes 1/8/32
+#
+# Configurations:
+#   - AR (plain decoding) and SGLang auto
+#   - Static EAGLE-3 twins at (steps 9, topk 10, N 16/32/60) and (9, 4, 32/60)
+#   - TALON-S on those same 5 trees with mu 0.03
+#   - TALON-S at mu 0.01 and 0.1 on (9, 10, 60)
+#
+# Each TALON server has a static EAGLE-3 "twin" with the same tree shape.
+# Same draft passes, same number of verified tokens; only node selection differs.
+
+server:
+  model_path: meta-llama/Llama-3.1-8B-Instruct
+  draft_model_path: lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B
+  algorithm: EAGLE3
+  dtype: float16
+  max_running_requests: 48
+  cuda_graph_max_bs: 48
+  mem_fraction_static: 0.80
+  disable_radix_cache: true
+  port: 30000
+
+servers:
+  # ============================================================
+  # Baselines
+  # ============================================================
+
+  # AR baseline (speedup denominator)
+  - mode: ar
+
+  # SGLang auto-tuned baseline
+  - mode: auto
+
+  # ============================================================
+  # Static EAGLE-3 configurations (TALON's "twins")
+  # ============================================================
+
+  - mode: spec
+    trees:
+      # Paper's EAGLE-3 baseline: K=10, D=8, N=60 (steps=9 in SGLang)
+      - {steps: 9, topk: 10, num_draft_tokens: 60, label: eagle3_s9_k10_b60}
+
+      # Smaller budgets for comparison
+      - {steps: 9, topk: 10, num_draft_tokens: 32, label: eagle3_s9_k10_b32}
+      - {steps: 9, topk: 10, num_draft_tokens: 16, label: eagle3_s9_k10_b16}
+
+      # Different topk (narrower trees)
+      - {steps: 9, topk: 4, num_draft_tokens: 60, label: eagle3_s9_k4_b60}
+      - {steps: 9, topk: 4, num_draft_tokens: 32, label: eagle3_s9_k4_b32}
+
+  # ============================================================
+  # TALON-S configurations (mu=0.03, matching the 5 static twins)
+  # ============================================================
+
+  # TALON-S: K=10, N=60, mu=0.03 (main configuration from paper)
+  - mode: talon
+    talon:
+      budget: 60
+      mu: 0.03
+      root_k: 10
+      num_steps: 9
+
+  # TALON-S: K=10, N=32, mu=0.03
+  - mode: talon
+    talon:
+      budget: 32
+      mu: 0.03
+      root_k: 10
+      num_steps: 9
+
+  # TALON-S: K=10, N=16, mu=0.03
+  - mode: talon
+    talon:
+      budget: 16
+      mu: 0.03
+      root_k: 10
+      num_steps: 9
+
+  # TALON-S: K=4, N=60, mu=0.03
+  - mode: talon
+    talon:
+      budget: 60
+      mu: 0.03
+      root_k: 4
+      num_steps: 9
+
+  # TALON-S: K=4, N=32, mu=0.03
+  - mode: talon
+    talon:
+      budget: 32
+      mu: 0.03
+      root_k: 4
+      num_steps: 9
+
+  # ============================================================
+  # TALON-S with different mu values on (9, 10, 60)
+  # ============================================================
+
+  # TALON-S: K=10, N=60, mu=0.01 (more aggressive gating)
+  - mode: talon
+    talon:
+      budget: 60
+      mu: 0.01
+      root_k: 10
+      num_steps: 9
+
+  # TALON-S: K=10, N=60, mu=0.1 (more conservative gating)
+  - mode: talon
+    talon:
+      budget: 60
+      mu: 0.1
+      root_k: 10
+      num_steps: 9
+
+run:
+  benches: [mt_bench, humaneval, gsm8k, alpaca, sum, qa]
+  batch_sizes: [1, 8, 32]
+  temperatures: [0.0]
+  subset: all
+  limit: 0               # 0 = all questions
+  max_turns: 0           # 0 = all turns
+  max_new_tokens: 1024
+  repeat_prompts_for_batch: {32: 2}
+  warmup_questions: 4

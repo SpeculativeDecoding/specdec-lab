@@ -1,0 +1,14 @@
+{
+  "entries": {
+    "cmd-1792800363017": {
+      "key": "cmd-1792800363017",
+      "value": "{\"command\":\"ls -la /Users/anjaligasada/Desktop/specdec-lab/\",\"exitCode\":0,\"success\":true}",
+      "namespace": "commands",
+      "storedAt": "2026-10-24T00:06:03.017Z",
+      "lastAccessed": "2026-10-24T00:06:03.017Z",
+      "accessCount": 0,
+      "expiresAt": "2026-11-23T00:06:03.017Z"
+    }
+  },
+  "version": "3.0.0"
+}
