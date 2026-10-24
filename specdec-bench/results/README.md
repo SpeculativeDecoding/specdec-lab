@@ -16,6 +16,7 @@ below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab n
 | `chtc_l40s/adaptive_gsm8k_sum_qa/` | CHTC L40S | Full suite: GSM8K, Sum, QA |
 | `sglang_h200/` | CHTC H200 | Path A (SGLang): 21 shapes on all six benchmarks at batch sizes 1, 8, 32 |
 | `sglang_talon_bs8_h200/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 8, all six benchmarks |
+| `sglang_talon_bs8_A100/` | Local A100-40GB | Path A: the same batch-8 comparison, repeated on A100 (see `SUMMARY.md` there) |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
@@ -169,6 +170,27 @@ geometric mean). Token-for-token agreement with plain decoding is the same for b
 73–94% for TALON-S and 74–96% for EAGLE-3. MT-Bench is lowest for both, probably because a
 first-turn difference carries into the second turn.
 
+**Repeated on A100.** `sglang_talon_bs8_A100/` runs the same config on a 40 GB A100, with
+`mem_fraction_static` lowered from 0.80 to 0.70 for both speculative servers (at 0.80 the 9 × 10
+tree's CUDA graphs run out of memory at server start; the setting only shrinks the KV cache). Plain
+decoding and EAGLE-3 ran on one GPU and TALON-S on a second, identical one. The result is the same:
+
+| Benchmark | EAGLE-3 | TALON-S | τ EAGLE-3 → TALON-S |
+| --- | --- | --- | --- |
+| HumanEval | 1.49× | 1.39× | 7.04 → 6.75 |
+| GSM8K | 1.35× | 1.25× | 6.43 → 6.10 |
+| MT-Bench | 1.39× | 1.27× | 6.47 → 6.09 |
+| Alpaca | 1.46× | 1.32× | 6.89 → 6.36 |
+| Sum | 1.33× | 1.24× | 5.48 → 5.18 |
+| QA | 1.17× | 1.09× | 5.56 → 5.25 |
+| Geometric mean | 1.36× | 1.26× | |
+
+τ matches the H200 run to within 0.05 on every benchmark, as expected, since τ does not depend on the
+GPU. TALON-S is 6–9% slower than EAGLE-3 on the A100. Splitting that gap, about three quarters comes
+from the lower τ and the rest from the hook's own cost, which adds 1–2% (about 1 ms) to each 65 ms
+batch-8 step. Agreement with plain decoding is again similar for both methods (72–95% for EAGLE-3,
+72–93% for TALON-S).
+
 ## Correctness
 
 At T=0, speculative decoding should reproduce plain decoding exactly. Comparing token IDs on the A100
@@ -180,7 +202,7 @@ been run on these files.
 
 ## Caveats
 
-- Path B is batch size 1 only. Path A covers batch sizes 8 and 32, but with fixed shapes and SGLang's own drafter, not TALON.
+- Path B is batch size 1 only. Path A covers batch sizes 8 and 32 with fixed shapes and SGLang's own drafter; TALON's rules (TALON-S) were run only at batch 8 and only within a fixed tree.
 - Path A ran SGLang with `SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1`, since its EAGLE-3 drafter declares a 2,048-token context. Whether any Sum prompt plus answer goes past 2,048 tokens has not been checked yet.
 - 80 questions per benchmark. Speedup confidence intervals in `summary.csv` compare each method with
   plain decoding, not TALON with EAGLE-3 directly. A paired bootstrap would be needed to call the
