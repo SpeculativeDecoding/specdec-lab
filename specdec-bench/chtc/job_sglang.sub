@@ -1,0 +1,43 @@
+# Path A (SGLang). Override at submit time, e.g.
+#   condor_submit CONFIG=configs/sweep_eagle3_llama31.yaml BENCHES=humaneval,alpaca RUN=sglang_humaneval_alpaca job_sglang.sub
+if !defined CONFIG
+  CONFIG = configs/smoke.yaml
+endif
+if !defined BENCHES
+  BENCHES =
+endif
+if !defined RUN
+  RUN = sglang_smoke
+endif
+
+universe = container
+container_image = docker://lmsysorg/sglang:v0.5.22
+
+executable = job_sglang.sh
+arguments  = "$(CONFIG) '$(BENCHES)' $(RUN)"
+initial_dir = .
+
+log    = logs/sglang.$(Cluster).log
+output = logs/sglang.$(Cluster).out
+error  = logs/sglang.$(Cluster).err
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = job_sglang.sh,.env,specdec-bench.tar.gz
+transfer_output_files = results/$(RUN)
+
+request_cpus   = 8
+request_memory = 64GB
+request_disk   = 120GB
+request_gpus   = 1
+# H200 only: every Path A run on one GPU type, so speedups are comparable; SGLang v0.5.22 needs a CUDA 13 driver
+requirements = (Target.CUDADriverVersion >= 13.0) && \
+               regexp("H200", Target.GPUs_DeviceName) && \
+               !regexp("MIG", Target.GPUs_DeviceName)
+
++WantGPULab   = true
++WantFlocking = false
++WantGlidein  = false
++GPUJobLength = "long"
+
+queue 1
