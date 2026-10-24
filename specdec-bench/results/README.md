@@ -15,6 +15,7 @@ below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab n
 | `chtc_h200/adaptive_three_bench/` | CHTC H200 | Full suite: HumanEval, Alpaca, MT-Bench |
 | `chtc_l40s/adaptive_gsm8k_sum_qa/` | CHTC L40S | Full suite: GSM8K, Sum, QA |
 | `sglang_h200/` | CHTC H200 | Path A (SGLang): 21 shapes on all six benchmarks at batch sizes 1, 8, 32 |
+| `sglang_talon_bs8/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 8, all six benchmarks |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
@@ -134,6 +135,39 @@ Choosing the shape per workload gains at most about 4% over the best single shap
 by 1.7% at batch 1, 0% at batch 8 and 0.4% at batch 32. Matching the shape to the batch size is
 worth up to 3.4× (at batch 32: 1.81× for the 3-token chain vs 0.53× for the EAGLE repo's default
 tree). A shape-selection rule should therefore key on batch size first and workload second.
+
+### 8. TALON-S at batch 8: TALON's rules alone do not help
+
+`sglang_talon_bs8/` compares, on one H200 at batch 8 across all six benchmarks, plain decoding,
+EAGLE-3 and TALON-S on the same 9 × 10 tree with budget 60. TALON-S
+(`specdec/sglang_talon_plugin.py`) applies TALON's tree rules inside SGLang's drafter:
+- every one of the 10 root children is kept;
+- a later node is kept only if p ≥ 0.03 × the best candidate of its layer and its parent was kept;
+- only kept nodes are expanded;
+- the budget is filled layer by layer.
+
+Both servers draft identically (9 passes) and verify 60 tokens, so only the choice of which 60
+differs. The hook's marker file confirms it ran in SGLang's scheduler process during CUDA-graph
+capture.
+
+| Benchmark | EAGLE-3 | TALON-S | τ EAGLE-3 → TALON-S |
+| --- | --- | --- | --- |
+| HumanEval | 1.62× | 1.52× | 7.04 → 6.74 |
+| GSM8K | 1.48× | 1.37× | 6.43 → 6.07 |
+| MT-Bench | 1.44× | 1.40× | 6.43 → 6.09 |
+| Alpaca | 1.59× | 1.45× | 6.88 → 6.39 |
+| Sum | 1.19× | 1.12× | 5.47 → 5.17 |
+| QA | 1.27× | 1.20× | 5.54 → 5.23 |
+| Geometric mean | 1.42× | 1.33× | |
+
+TALON-S is 3–8% slower on every workload and accepts 4–7% fewer tokens per step. Within a
+fixed tree, forcing all root children and filling the budget layer by layer spends tokens on
+shallow branches, while EAGLE-2's global top-59 keeps more deep nodes that get accepted. TALON's
+saving in Path B came from fewer draft passes on uncertain text, and SGLang's fixed-shape CUDA
+graph always runs all 9. The EAGLE-3 row reproduces the sweep in `sglang_h200/` (1.42× vs 1.45×
+geometric mean). Token-for-token agreement with plain decoding is the same for both methods:
+73–94% for TALON-S and 74–96% for EAGLE-3. MT-Bench is lowest for both, probably because a
+first-turn difference carries into the second turn.
 
 ## Correctness
 
