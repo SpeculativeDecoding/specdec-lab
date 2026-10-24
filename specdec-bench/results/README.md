@@ -17,19 +17,112 @@ below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab n
 | `sglang_h200/` | CHTC H200 | Path A (SGLang): 21 shapes on all six benchmarks at batch sizes 1, 8, 32 |
 | `sglang_talon_bs8_h200/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 8, all six benchmarks |
 | `sglang_talon_bs8_A100/` | Local A100-40GB | Path A: the same batch-8 comparison, repeated on A100 (see `SUMMARY.md` there) |
+| `sglang_talon_bs1_32_h200/` | CHTC H200 | Path A: plain decoding, EAGLE-3 and TALON-S at batch 1 and 32, all six benchmarks |
+| `sglang_bscurve_humaneval_alpaca_h200/` | CHTC H200 | Path A: 10 servers (chains, one tree per budget, EAGLE-3, TALON-S, SGLang adaptive) at batch 2, 4, 16 |
+| `depth_grid_humaneval_gsm8k_mt_bench_h200/`, `depth_grid_alpaca_sum_qa_h200/` | CHTC H200 | Path B: EAGLE-3 8 × 10, TALON, and fixed depth 1, 2, 4, 6, 12, 20 at width 10; all six benchmarks |
+| `dxw80_sweep_{humaneval,gsm8k,sum,qa}_h200/` | CHTC H200 | Path B: depth × width = 80, from 1 × 80 to 40 × 2 (one warm-up per run) |
+| `width_grid_humaneval_gsm8k_mt_bench_h200/` | CHTC H200 | Path B: 12 × 4, 20 × 2, 20 × 4, 1 × 20, 2 × 20, 4 × 16 |
+| `summary_vs_eagle3.csv` | CHTC H200 | The headline table below (`scripts/compare_vs_eagle3.py`) |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
 
 **How to read the numbers:**
+- **Plain decoding** (`ar` in file names) is the target model alone with greedy decoding: one token
+  per forward pass, no drafter. Every method decodes greedily (T=0), so all of them produce the
+  same text, just at different speeds.
 - **Speedup:** throughput divided by plain decoding's throughput, on the same GPU.
+- **vs EAGLE-3:** throughput divided by EAGLE-3's 8 × 10 tree, measured on the same questions.
 - **τ:** tokens accepted per target-model step.
 - **Depth:** the mean depth of the draft tree.
 
 τ and depth depend only on the models and the data, and they agree across GPUs to about ±0.1, so
 they can be pooled. Speedups depend on the GPU, so compare them only within one folder.
 
-## Findings
+## Headline: EAGLE-3 vs TALON vs "Ours" (Path B, H200, batch 1)
+
+Three ways to spend the same budget of 60 verified tokens per step:
+
+- **EAGLE-3:** one fixed tree, depth 8 × width 10, for every workload.
+- **TALON:** reshapes the tree at every step from the drafter's confidence (mu = 0.03, K = 10).
+- **Ours:** one fixed tree per workload, chosen offline. For each workload, the fixed tree with the
+  best speedup on the calibration questions (frozen 30% split, `specdec.data.split`) among every
+  fixed tree run on that workload: up to 21 shapes from the depth grid, the depth × width = 80
+  sweep and the width grid, EAGLE-3's own 8 × 10 included.
+
+Everything below is scored on the other 70% (test questions: 51–63 per workload, since the split
+hashes question ids), all on H200s.
+
+| Workload | EAGLE-3 vs plain | TALON vs EAGLE-3 | Ours: chosen tree | Ours vs EAGLE-3 |
+| --- | --- | --- | --- | --- |
+| HumanEval (code) | 4.42× | 0.99 [0.97, 1.01] | 8 × 10 | 1.00 (same tree) |
+| GSM8K (math) | 3.93× | 1.01 [1.00, 1.02] | 8 × 10 | 1.00 (same tree) |
+| MT-Bench (dialogue) | 4.06× | 1.01 [0.99, 1.02] | 8 × 10 | 1.00 (same tree) |
+| Alpaca (instructions) | 4.32× | 0.99 [0.98, 1.01] | 8 × 10 | 1.00 (same tree) |
+| Sum (summaries) | 3.41× | **1.04** [1.02, 1.05] | 6 × 10 | **1.04** [1.03, 1.05] |
+| QA | 3.32× | **1.07** [1.04, 1.09] | 6 × 10 | **1.05** [1.02, 1.07] |
+
+The bracketed ranges are 95% paired-bootstrap intervals over test questions. A range that
+excludes 1.00 means the method is reliably different from EAGLE-3 on these questions.
+
+- **Code, math, dialogue and instructions:** the calibration questions pick EAGLE-3's own 8 × 10, and
+  TALON is within ±1% of it. The fixed default is already the right shape for these workloads.
+- **Summaries and QA:** a shallower tree wins. Depth 6 × 10 beats EAGLE-3 by 4–5%, which is about
+  as much as TALON (4–7%) and is chosen offline with no per-step logic.
+- **Extreme shapes never win.** Very shallow and wide trees (1 × 80, 2 × 40) and very deep and
+  narrow ones (20 × 4, 40 × 2) lose 15–60% against 8 × 10 (tables below). Deeper trees accept more
+  tokens per step but pay one draft pass per layer.
+
+Regenerate with
+`python scripts/compare_vs_eagle3.py results/depth_grid_*_h200 results/dxw80_sweep_*_h200 results/width_grid_*_h200 --out results/summary_vs_eagle3.csv`.
+
+### Every fixed tree relative to EAGLE-3 (all questions)
+
+Depth grid, width 10 (each folder against its own 8 × 10; EAGLE-3's speedup over plain decoding in
+the last row):
+
+| Depth | HumanEval | GSM8K | MT-Bench | Alpaca | Sum | QA |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0.55 | 0.62 | 0.61 | 0.59 | 0.70 | 0.68 |
+| 2 | 0.67 | 0.76 | 0.75 | 0.74 | 0.86 | 0.84 |
+| 4 | 0.86 | 0.95 | 0.93 | 0.92 | 1.01 | 0.99 |
+| 6 | 0.97 | **1.01** | 0.99 | 1.00 | **1.04** | **1.04** |
+| **8 (EAGLE-3)** | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| 12 | 0.93 | 0.89 | 0.91 | 0.91 | 0.89 | 0.89 |
+| 20 | 0.75 | 0.71 | 0.74 | 0.73 | 0.72 | 0.72 |
+| TALON | 0.99 | 1.00 | 1.01 | 1.00 | 1.04 | **1.08** |
+| EAGLE-3 vs plain | 4.43× | 3.96× | 4.04× | 4.28× | 3.40× | 3.46× |
+
+Depth × width = 80 (each workload against its own 8 × 10):
+
+| Depth × width | HumanEval | GSM8K | Sum | QA |
+| --- | --- | --- | --- | --- |
+| 1 × 80 | 0.56 | 0.62 | 0.73 | 0.70 |
+| 2 × 40 | 0.67 | 0.76 | 0.86 | 0.85 |
+| 4 × 20 | 0.88 | 0.88 | 1.02 | 1.00 |
+| 5 × 16 | 0.93 | 0.97 | **1.04** | **1.02** |
+| **8 × 10** | 1.00 | 1.00 | 1.00 | 1.00 |
+| 10 × 8 | 0.97 | 0.94 | 0.96 | 0.95 |
+| 16 × 5 | 0.84 | 0.77 | 0.78 | 0.79 |
+| 20 × 4 | 0.74 | 0.67 | 0.69 | 0.70 |
+| 40 × 2 | 0.46 | 0.39 | 0.40 | 0.41 |
+
+Width grid (ratio of speedups over each run's own plain decoding, against the depth grid's 8 × 10):
+
+| Depth × width | HumanEval | GSM8K | MT-Bench |
+| --- | --- | --- | --- |
+| 12 × 4 | 0.91 | 0.86 | 0.88 |
+| 20 × 2 | 0.66 | 0.59 | 0.60 |
+| 20 × 4 | 0.73 | 0.68 | 0.70 |
+| 1 × 20 | 0.56 | 0.62 | 0.62 |
+| 2 × 20 | 0.66 | 0.74 | 0.74 |
+| 4 × 16 | 0.87 | 0.94 | 0.93 |
+
+EAGLE-3's 8 × 10 comes out the same with one warm-up per run (depth × width = 80 sweep) and with
+three (depth grid), within 2% on all four shared workloads (HumanEval 4.53× vs 4.43×, GSM8K 3.97×
+vs 3.96×, Sum 3.37× vs 3.40×, QA 3.48× vs 3.46×).
+
+## Earlier Path B findings (A100, H200, L40S)
 
 ### 1. TALON's tree shape follows how predictable the workload is
 
@@ -191,6 +284,30 @@ from the lower τ and the rest from the hook's own cost, which adds 1–2% (abou
 batch-8 step. Agreement with plain decoding is again similar for both methods (72–95% for EAGLE-3,
 72–93% for TALON-S).
 
+### 9. TALON-S at every batch size, and the batch-size curve
+
+`sglang_talon_bs1_32_h200/` repeats the batch-8 comparison at batch 1 and 32. TALON-S stays behind
+EAGLE-3 at both: 2.51× vs 2.71× at batch 1 and 0.54× vs 0.56× at batch 32 (geometric means of the
+six workloads), with the same 4–7% lower τ. The one exception is MT-Bench at batch 32 (+9%), where
+τ is also lower, so it is likely scheduling noise rather than a real gain.
+
+`sglang_bscurve_humaneval_alpaca_h200/` fills in batch 2, 4 and 16 for HumanEval and Alpaca. Speedup
+over plain decoding, geometric mean of the two (batch 1, 8 and 32 from `sglang_h200/`):
+
+| Shape | Batch 1 | 2 | 4 | 8 | 16 | 32 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chain, 3 deep | 2.50 | 2.47 | 2.44 | 2.36 | 2.22 | **1.99** |
+| Chain, 7 deep | **3.01** | **3.01** | **2.92** | **2.80** | **2.50** | **1.99** |
+| Tree 7 × 2 (budget 16) | 2.73 | 2.64 | 2.54 | 2.35 | 1.69 | 1.32 |
+| Tree 6 × 3 (budget 32) | 2.71 | 2.68 | 2.48 | 2.05 | 1.35 | 0.91 |
+| Tree 8 × 4 (budget 60) | 2.90 | 2.76 | 2.30 | 1.60 | 0.78 | 0.63 |
+| Tree 9 × 10 (budget 60, EAGLE-3) | 2.95 | 2.84 | 2.34 | 1.64 | 1.00 | 0.63 |
+| TALON-S (9 × 10) | – | 2.61 | 2.17 | – | 0.96 | – |
+| SGLang adaptive | 2.74 | 2.66 | 2.66 | 2.37 | 2.20 | 1.62 |
+
+Budget-60 trees break even at about batch 16. The 7-deep chain is best or tied at every batch size
+on these two workloads, and TALON-S stays 5–8% behind EAGLE-3 at batch 2, 4 and 16 too.
+
 ## Correctness
 
 At T=0, speculative decoding should reproduce plain decoding exactly. Comparing token IDs on the A100
@@ -202,11 +319,15 @@ been run on these files.
 
 ## Caveats
 
-- Path B is batch size 1 only. Path A covers batch sizes 8 and 32 with fixed shapes and SGLang's own drafter; TALON's rules (TALON-S) were run only at batch 8 and only within a fixed tree.
+- Path B is batch size 1 only. Path A covers batch sizes 1 to 32 with fixed shapes and SGLang's own drafter; TALON's rules there (TALON-S) work only within a fixed tree.
+- Every configuration was run once. The proposal's success criterion (a margin larger than
+  run-to-run variance across three repeats) is not tested yet. The headline intervals resample
+  questions, not runs.
+- "Ours" was chosen on 17–29 calibration questions per workload. A larger or different calibration
+  set might pick a different tree, and the Sum/QA gains are small enough to check on a repeat run.
 - Path A ran SGLang with `SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1`, since its EAGLE-3 drafter declares a 2,048-token context. Whether any Sum prompt plus answer goes past 2,048 tokens has not been checked yet.
-- 80 questions per benchmark. Speedup confidence intervals in `summary.csv` compare each method with
-  plain decoding, not TALON with EAGLE-3 directly. A paired bootstrap would be needed to call the
-  A100 QA/Sum gains significant.
+- 80 questions per benchmark. The intervals in each `summary.csv` compare a method with plain
+  decoding; `summary_vs_eagle3.csv` has the paired intervals against EAGLE-3 (H200 only).
 - Plain decoding in the EAGLE repo's code is slow (about 19 tok/s on the A100, 44 on the H200), so
   absolute speedups are higher than with an optimised serving engine. Comparisons between methods
   are unaffected.

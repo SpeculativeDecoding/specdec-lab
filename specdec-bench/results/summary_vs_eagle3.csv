@@ -1,0 +1,19 @@
+bench,method,folder,config,n_calib,n_test,speedup_vs_plain_test,vs_eagle3_test,ci_lo,ci_hi
+alpaca,EAGLE-3 (8 x 10),depth_grid_alpaca_sum_qa_h200,s9_k10_b60,25,55,4.315,1.0,1.0,1.0
+alpaca,TALON,depth_grid_alpaca_sum_qa_h200,adaptive_n60_mu0.03_k10,25,55,4.277,0.9912,0.9751,1.0073
+alpaca,Ours (8 x 10),depth_grid_alpaca_sum_qa_h200,s9_k10_b60,25,55,4.315,1.0,1.0,1.0
+gsm8k,EAGLE-3 (8 x 10),depth_grid_humaneval_gsm8k_mt_bench_h200,s9_k10_b60,21,59,3.927,1.0,1.0,1.0
+gsm8k,TALON,depth_grid_humaneval_gsm8k_mt_bench_h200,adaptive_n60_mu0.03_k10,21,59,3.966,1.0098,0.9961,1.0237
+gsm8k,Ours (8 x 10),dxw80_sweep_gsm8k_h200,s9_k10_b60,21,59,3.939,1.0,1.0,1.0
+humaneval,EAGLE-3 (8 x 10),depth_grid_humaneval_gsm8k_mt_bench_h200,s9_k10_b60,20,60,4.415,1.0,1.0,1.0
+humaneval,TALON,depth_grid_humaneval_gsm8k_mt_bench_h200,adaptive_n60_mu0.03_k10,20,60,4.376,0.9911,0.9737,1.006
+humaneval,Ours (8 x 10),dxw80_sweep_humaneval_h200,s9_k10_b60,20,60,4.517,1.0,1.0,1.0
+mt_bench,EAGLE-3 (8 x 10),depth_grid_humaneval_gsm8k_mt_bench_h200,s9_k10_b60,29,51,4.062,1.0,1.0,1.0
+mt_bench,TALON,depth_grid_humaneval_gsm8k_mt_bench_h200,adaptive_n60_mu0.03_k10,29,51,4.094,1.008,0.9938,1.023
+mt_bench,Ours (8 x 10),depth_grid_humaneval_gsm8k_mt_bench_h200,s9_k10_b60,29,51,4.062,1.0,1.0,1.0
+qa,EAGLE-3 (8 x 10),depth_grid_alpaca_sum_qa_h200,s9_k10_b60,17,63,3.322,1.0,1.0,1.0
+qa,TALON,depth_grid_alpaca_sum_qa_h200,adaptive_n60_mu0.03_k10,17,63,3.538,1.065,1.0402,1.09
+qa,Ours (6 x 10),depth_grid_alpaca_sum_qa_h200,s7_k10_b60,17,63,3.479,1.0473,1.0228,1.0684
+sum,EAGLE-3 (8 x 10),depth_grid_alpaca_sum_qa_h200,s9_k10_b60,26,54,3.41,1.0,1.0,1.0
+sum,TALON,depth_grid_alpaca_sum_qa_h200,adaptive_n60_mu0.03_k10,26,54,3.543,1.039,1.0243,1.0532
+sum,Ours (6 x 10),depth_grid_alpaca_sum_qa_h200,s7_k10_b60,26,54,3.544,1.0392,1.0276,1.0506
