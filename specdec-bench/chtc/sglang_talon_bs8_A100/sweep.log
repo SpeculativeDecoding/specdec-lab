@@ -1,9 +1,0 @@
-ar : /home/junyeol/miniconda3/envs/sglang/bin/python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port 30000 --dtype float16 --max-running-requests 32 --cuda-graph-max-bs-decode 32 --mem-fraction-static 0.8 --disable-radix-cache
-eagle3_s9_k10_b60_eagle3_ref : /home/junyeol/miniconda3/envs/sglang/bin/python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port 30000 --dtype float16 --max-running-requests 32 --cuda-graph-max-bs-decode 32 --mem-fraction-static 0.8 --disable-radix-cache --speculative-algorithm EAGLE3 --speculative-draft-model-path lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B --speculative-num-steps 9 --speculative-eagle-topk 10 --speculative-num-draft-tokens 60
-talon_s9_k10_b60_mu0.03 : /home/junyeol/miniconda3/envs/sglang/bin/python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct --port 30000 --dtype float16 --max-running-requests 32 --cuda-graph-max-bs-decode 32 --mem-fraction-static 0.8 --disable-radix-cache --speculative-algorithm EAGLE3 --speculative-draft-model-path lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B --speculative-num-steps 9 --speculative-eagle-topk 10 --speculative-num-draft-tokens 60
-[ar] mt_bench bs=8 T=0: 540.4 tok/s (full-occ 561.243104924788), tau=None, errors=0
-[ar] humaneval bs=8 T=0: 532.8 tok/s (full-occ 573.1523988658867), tau=None, errors=0
-[ar] gsm8k bs=8 T=0: 541.1 tok/s (full-occ 567.7371906142955), tau=None, errors=0
-[ar] alpaca bs=8 T=0: 535.6 tok/s (full-occ 572.4150489005681), tau=None, errors=0
-[ar] sum bs=8 T=0: 420.2 tok/s (full-occ 427.9298745520532), tau=None, errors=0
-[ar] qa bs=8 T=0: 441.6 tok/s (full-occ 565.465425040743), tau=None, errors=0
