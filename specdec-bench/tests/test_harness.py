@@ -82,7 +82,9 @@ class TestData(unittest.TestCase):
 
         self.assertIn("BENCHES=${BENCHES:-all}", full_suite)
         self.assertIn("export BENCHES=humaneval,alpaca,mt_bench", subset_suite)
-        self.assertIn("run_adaptive_three_bench_suite.sh", chtc_job)
+        # the CHTC job runs the full suite on the benchmarks it is given (default: the three)
+        self.assertIn('BENCHES=${1:-humaneval,alpaca,mt_bench}', chtc_job)
+        self.assertIn('BENCHES="$BENCHES" bash scripts/run_adaptive_suite.sh', chtc_job)
 
     def test_parse_benches(self):
         self.assertEqual(data.parse_benches("all"), list(data.BENCHES))

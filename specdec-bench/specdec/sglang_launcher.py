@@ -12,6 +12,7 @@ If all three tree flags are omitted, SGLang auto-picks (5, 4, 8) for LlamaForCau
 """
 from __future__ import annotations
 
+import json
 import os
 import signal
 import subprocess
@@ -29,8 +30,8 @@ DEFAULT_EAGLE3_DRAFT = "lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B"
 
 @dataclass
 class ServerSpec:
-    mode: str                          # "spec" | "ar" | "auto" | "adaptive"
-    tree: Optional[TreeConfig] = None  # required for mode == "spec"
+    mode: str                          # "spec" | "ar" | "auto" | "adaptive" | "talon"
+    tree: Optional[TreeConfig] = None  # required for mode == "spec" / "talon"
     algorithm: str = "EAGLE3"
     model_path: str = DEFAULT_TARGET
     draft_model_path: str = DEFAULT_EAGLE3_DRAFT
@@ -43,11 +44,14 @@ class ServerSpec:
     adaptive_config: Optional[str] = None
     adaptive_start: TreeConfig = field(default_factory=lambda: TreeConfig(3, 1, 4, "chain"))
     extra_args: List[str] = field(default_factory=list)
+    talon_mu: float = 0.03             # TALON-S confidence threshold (mode == "talon")
 
     @property
     def name(self) -> str:
         if self.mode == "spec":
             return f"{self.algorithm.lower()}_{self.tree.name}"
+        if self.mode == "talon":
+            return f"talon_{self.tree.name}_mu{self.talon_mu:g}"
         return f"{self.algorithm.lower()}_{self.mode}" if self.mode != "ar" else "ar"
 
     def command(self, python: str = sys.executable) -> List[str]:
@@ -60,12 +64,12 @@ class ServerSpec:
                "--mem-fraction-static", str(self.mem_fraction_static)]
         if self.disable_radix_cache:
             cmd.append("--disable-radix-cache")
-        if self.mode in ("spec", "auto", "adaptive"):
+        if self.mode in ("spec", "talon", "auto", "adaptive"):
             cmd += ["--speculative-algorithm", self.algorithm,
                     "--speculative-draft-model-path", self.draft_model_path]
-        if self.mode == "spec":
+        if self.mode in ("spec", "talon"):
             if self.tree is None:
-                raise ValueError("mode=spec needs a TreeConfig")
+                raise ValueError(f"mode={self.mode} needs a TreeConfig")
             cmd += self.tree.validate().sglang_args()
         elif self.mode == "adaptive":
             t = self.adaptive_start.validate()
@@ -85,7 +89,17 @@ class ServerSpec:
                 "dtype": self.dtype, "max_running_requests": self.max_running_requests,
                 "cuda_graph_max_bs": self.cuda_graph_max_bs,
                 "mem_fraction_static": self.mem_fraction_static,
-                "disable_radix_cache": self.disable_radix_cache}
+                "disable_radix_cache": self.disable_radix_cache,
+                "talon": ({"mu": self.talon_mu, "num_steps": self.tree.steps, "root_k": self.tree.topk}
+                          if self.mode == "talon" else None)}
+
+    def talon_env(self, out_dir: str) -> Dict[str, str]:
+        """Environment that switches on specdec/sglang_talon_plugin.py in the server."""
+        if self.mode != "talon":
+            return {}
+        return {"SPECDEC_TALON": "1", "SPECDEC_TALON_MU": str(self.talon_mu),
+                "SPECDEC_TALON_NUM_STEPS": str(self.tree.steps),
+                "SPECDEC_TALON_ROOT_K": str(self.tree.topk), "SPECDEC_TALON_OUT_DIR": out_dir}
 
 
 class Server:
@@ -100,7 +114,11 @@ class Server:
     def __enter__(self):
         import requests
         os.makedirs(os.path.dirname(os.path.abspath(self.log_path)), exist_ok=True)
-        env = dict(os.environ, SGLANG_RECORD_STEP_TIME="1")
+        self.out_dir = os.path.dirname(os.path.abspath(self.log_path))
+        self.marker = os.path.join(self.out_dir, "talon_marker.jsonl")
+        if os.path.exists(self.marker):
+            os.remove(self.marker)  # a stale marker must not vouch for this launch
+        env = dict(os.environ, SGLANG_RECORD_STEP_TIME="1", **self.spec.talon_env(self.out_dir))
         self._log = open(self.log_path, "w")
         self._log.write(" ".join(self.spec.command()) + "\n\n")
         self._log.flush()
@@ -119,6 +137,24 @@ class Server:
             time.sleep(5)
         self.__exit__(None, None, None)
         raise TimeoutError(f"server not healthy after {self.timeout_s}s; see {self.log_path}")
+
+    def verify_talon(self):
+        """Raise unless the TALON-S hook was registered and called in this server's processes
+        with this spec's settings. Call after warm-up: with CUDA graphs the first call happens
+        during capture, without them on the first decode."""
+        if self.spec.mode != "talon":
+            return
+        try:
+            events = [json.loads(line) for line in open(self.marker) if line.strip()]
+        except OSError:
+            events = []
+        want = {"mu": self.spec.talon_mu, "num_steps": self.spec.tree.steps, "root_k": self.spec.tree.topk}
+        ok = [e for e in events if e.get("event") == "called"
+              and all(abs(float(e.get(k, -1)) - float(v)) < 1e-9 for k, v in want.items())]
+        if not ok:
+            raise RuntimeError(
+                f"TALON-S hook did not run with {want} (marker {self.marker}: {events}). Is the "
+                "'talon' entry point in group sglang.srt.plugins visible to the server (see chtc/job_sglang.sh)?")
 
     def __exit__(self, *exc):
         if self.proc is not None and self.proc.poll() is None:

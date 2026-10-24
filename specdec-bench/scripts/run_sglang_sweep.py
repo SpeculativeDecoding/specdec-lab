@@ -33,8 +33,12 @@ def expand_servers(cfg):
     for entry in cfg["servers"]:
         mode = entry["mode"]
         base = dict(common)
-        base.update({k: v for k, v in entry.items() if k not in ("mode", "trees", "plan_budgets")})
-        if mode == "spec":
+        base.update({k: v for k, v in entry.items() if k not in ("mode", "trees", "plan_budgets", "mu")})
+        if mode == "talon":  # TALON-S (specdec/sglang_talon_plugin.py) on each listed tree
+            for t in entry.get("trees", []):
+                specs.append(ServerSpec(mode="talon", tree=from_dict(t).validate(),
+                                        talon_mu=float(entry.get("mu", 0.03)), **base))
+        elif mode == "spec":
             trees = [from_dict(t) for t in entry.get("trees", [])]
             for b in entry.get("plan_budgets", []):
                 trees += PLAN_GRID[int(b)]
@@ -96,6 +100,7 @@ def main():
             # warm-up: CUDA graphs and allocator, discarded
             run_load(srv.base_url, tok, questions[benches[0]][:warmup_q], min(4, max(batch_sizes)),
                      max_new_tokens=128, max_turns=1)
+            srv.verify_talon()  # TALON-S servers: refuse to time a run the hook did not touch
             for bench, bs, T in todo:
                 qs = questions[bench] * repeat_for_bs.get(bs, 1)
                 flush_cache(srv.base_url)

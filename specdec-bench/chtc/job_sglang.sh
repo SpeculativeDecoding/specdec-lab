@@ -104,6 +104,16 @@ PY
 # mismatch unless overridden. (Path B's EAGLE runs use a 4096-token KV cache, run_eagle.py --max-length.)
 export SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1
 
+# Register specdec's SGLang plugin (TALON-S, active only for mode: talon servers) without pip or
+# root: a minimal dist-info with the entry point, plus the repo, on PYTHONPATH. SGLang loads
+# plugins from group sglang.srt.plugins in every process, including the scheduler.
+PLUGIN_DIR="$SCRATCH/pylib/specdec_bench-0.1.0.dist-info"
+mkdir -p "$PLUGIN_DIR"
+printf 'Metadata-Version: 2.1\nName: specdec-bench\nVersion: 0.1.0\n' > "$PLUGIN_DIR/METADATA"
+printf '[sglang.srt.plugins]\ntalon = specdec.sglang_talon_plugin:plugin\n' > "$PLUGIN_DIR/entry_points.txt"
+export PYTHONPATH="$PWD:$SCRATCH/pylib${PYTHONPATH:+:$PYTHONPATH}"
+python3 -c "from importlib.metadata import entry_points as e; import specdec.sglang_talon_plugin; print('sglang plugins:', [x.value for x in e(group='sglang.srt.plugins')])"
+
 echo "GPU:"
 nvidia-smi
 python3 -c "import sglang, torch; print('sglang', sglang.__version__, '| torch', torch.__version__)"

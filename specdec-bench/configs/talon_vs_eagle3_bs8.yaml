@@ -1,0 +1,38 @@
+# Path A: EAGLE-3 vs TALON-S at batch size 8 (SGLang v0.5.22), all six benchmarks.
+# Same tree for both (9 steps, 10 children, 60 verified tokens = the TALON paper's EAGLE-3
+# baseline), so the drafting cost is identical and only the node-selection rule differs:
+#   eagle3_..._eagle3_ref : SGLang's EAGLE-2 rule (global top-59 by cumulative probability)
+#   talon_..._mu0.03      : TALON's rules via specdec/sglang_talon_plugin.py (TALON-S)
+# Plain decoding is rerun on the same GPU as the speedup denominator. Other settings match
+# configs/sweep_eagle3_llama31.yaml, so the EAGLE-3 row can be checked against that sweep.
+server:
+  model_path: meta-llama/Llama-3.1-8B-Instruct
+  draft_model_path: lmsys/sglang-EAGLE3-LLaMA3.1-Instruct-8B
+  algorithm: EAGLE3
+  dtype: float16
+  max_running_requests: 32
+  cuda_graph_max_bs: 32
+  mem_fraction_static: 0.80
+  disable_radix_cache: true
+  port: 30000
+
+servers:
+  - mode: ar
+  - mode: spec
+    trees:
+      - {steps: 9, topk: 10, num_draft_tokens: 60, label: eagle3_ref}
+  - mode: talon
+    mu: 0.03
+    trees:
+      - {steps: 9, topk: 10, num_draft_tokens: 60}
+
+run:
+  benches: [mt_bench, humaneval, gsm8k, alpaca, sum, qa]
+  batch_sizes: [8]
+  temperatures: [0.0]
+  subset: all
+  limit: 0
+  max_turns: 0
+  max_new_tokens: 1024
+  repeat_prompts_for_batch: {}
+  warmup_questions: 4
