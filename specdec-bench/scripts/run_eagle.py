@@ -66,7 +66,7 @@ def main():
     p.add_argument("--dtype", default="float16", choices=["float16", "bfloat16"])
     p.add_argument("--ar", action="store_true", help="run only plain AR decoding")
     p.add_argument("--with-ar", action="store_true", help="also run AR after spec, same model load")
-    p.add_argument("--warmup", type=int, default=3)
+    p.add_argument("--warmup", type=int, default=1)
     p.add_argument("--skip-existing", action="store_true",
                    help="skip outputs that already exist (resume after an interruption)")
     p.add_argument("--no-resume", action="store_true",
