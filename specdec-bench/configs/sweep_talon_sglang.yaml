@@ -115,7 +115,7 @@ servers:
 
 run:
   benches: [mt_bench, humaneval, gsm8k, alpaca, sum, qa]
-  batch_sizes: [1, 8, 32]
+  batch_sizes: [1, 8, 16, 32]
   temperatures: [0.0]
   subset: all
   limit: 0               # 0 = all questions
