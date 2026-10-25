@@ -1,0 +1,5 @@
+path,config,mode,bench,batch_size,temperature,steps,topk,budget,mu,root_k,n_turns,throughput_tok_s,tau,delta,mean_tree_depth,speedup,speedup_ci_lo,speedup_ci_hi,errors
+eagle_repo,ar,ar,gsm8k,1,0.0,,,,,,80,44.21,,,,,,,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,gsm8k,1,0.0,,,60,0.03,10,80,180.31,6.1695,7.2077,6.983,4.078,3.9926,4.1681,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,gsm8k,1,0.0,,,60,0.03,10,80,175.68,5.9137,6.593,6.396,3.9734,3.8898,4.0545,0
+eagle_repo,eagle3_s9_k10_b60,spec,gsm8k,1,0.0,9,10,60,,,80,174.63,6.4186,9.2999,8.793,3.9497,3.8598,4.0427,0
