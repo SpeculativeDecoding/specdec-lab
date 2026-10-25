@@ -1,4 +1,4 @@
-# Speculative Decoding {#sec:spec-decode}
+# Speculative Decoding 
 
 Speculative decoding
 [@leviathan2023fast; @chen2023accelerating; @stern2018blockwise] is an
@@ -149,16 +149,3 @@ drafter's predicted distribution. Its adaptation is per-step and
 confidence-driven; it does not condition on workload type, nor examine
 how the depth/width trade-off shifts under batching, which is where
 speculative decoding's advantage erodes.
-
-# Member Roles {#member-roles .unnumbered}
-
-**Nabanita Bag** identified key research gaps, evaluated the feasibility
-of candidate models and benchmarks, and authored the initial draft of
-the proposal. **Hemanjali Gasada** introduced the foundational concepts
-of speculative decoding to the team and established the technical
-background context. **Junyeol Ryu** led the initial brainstorming,
-streamlined the project to a high-impact and realistic two-month
-timeline, and finalized the proposal draft. Generative AI was used in
-part to format this draft and summarize related literature.
-
-[^1]: Overleaf project:
