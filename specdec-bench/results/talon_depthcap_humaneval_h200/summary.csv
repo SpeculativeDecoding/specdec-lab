@@ -1,0 +1,5 @@
+path,config,mode,bench,batch_size,temperature,steps,topk,budget,mu,root_k,n_turns,throughput_tok_s,tau,delta,mean_tree_depth,speedup,speedup_ci_lo,speedup_ci_hi,errors
+eagle_repo,ar,ar,humaneval,1,0.0,,,,,,80,44.94,,,,,,,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,humaneval,1,0.0,,,60,0.03,10,80,200.27,7.2246,8.6564,8.486,4.4564,4.3303,4.5901,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,humaneval,1,0.0,,,60,0.03,10,80,192.17,6.4716,7.0521,6.927,4.2762,4.1663,4.3836,0
+eagle_repo,eagle3_s9_k10_b60,spec,humaneval,1,0.0,9,10,60,,,80,199.28,7.067,9.1773,8.862,4.4345,4.3018,4.5742,0

@@ -10,8 +10,10 @@
 #   1. EAGLE-3 8 x 10, with plain decoding (the normaliser, as in the sheet)
 #   2. EAGLE-3's best D x W, when it is not 8 x 10
 #   3. TALON, uncapped, root width 10 (the paper's setting)
-#   4. TALON, depth capped at D, root width 10
-#   5. when W != 10: TALON with root width W, uncapped and capped at D
+#   4. TALON capped at EAGLE-3's number of layers (C = D + 1: EAGLE "depth D" = steps D + 1
+#      builds D + 1 layers below the root), root width 10, as is and with --adaptive-fill
+#      (budget left at the cap goes to the best unused candidates, so it verifies all 60 tokens)
+#   5. when W != 10: the same three TALON runs with root width W
 # A run that fails is reported and skipped. Safe to re-run: finished outputs are skipped.
 set -euo pipefail
 OUT=${1:-results/talon_depthcap}
@@ -33,8 +35,8 @@ run() {  # bench, out-subdir, run_eagle.py tree arguments...
 for B in ${BENCHES//,/ }; do
   ENTRY=$(tr , '\n' <<<"$BEST" | grep "^$B:" || true)
   [ -n "$ENTRY" ] || { echo "no BEST entry for $B" >&2; exit 1; }
-  D=$(cut -d: -f2 <<<"$ENTRY") W=$(cut -d: -f3 <<<"$ENTRY")
-  echo "== $B: EAGLE-3 best tree ${D} x ${W}"
+  D=$(cut -d: -f2 <<<"$ENTRY") W=$(cut -d: -f3 <<<"$ENTRY") C=$((D + 1))
+  echo "== $B: EAGLE-3 best tree ${D} x ${W} (${C} layers)"
 
   run "$B" eagle3_s9_k10_b60 --with-ar --steps 9 --topk 10 --budget 60
   if [ "$D:$W" != "8:10" ]; then
@@ -42,8 +44,10 @@ for B in ${BENCHES//,/ }; do
   fi
   for K in 10 $([ "$W" != 10 ] && echo "$W"); do
     run "$B" "adaptive_n60_mu${MU}_k${K}" --adaptive --budget 60 --mu "$MU" --root-k "$K"
-    run "$B" "adaptive_n60_mu${MU}_k${K}_d${D}" --adaptive --budget 60 --mu "$MU" --root-k "$K" \
-        --adaptive-max-depth "$D"
+    run "$B" "adaptive_n60_mu${MU}_k${K}_d${C}" --adaptive --budget 60 --mu "$MU" --root-k "$K" \
+        --adaptive-max-depth "$C"
+    run "$B" "adaptive_n60_mu${MU}_k${K}_d${C}_fill" --adaptive --budget 60 --mu "$MU" --root-k "$K" \
+        --adaptive-max-depth "$C" --adaptive-fill
   done
 done
 

@@ -60,6 +60,8 @@ def main():
     p.add_argument("--mu", type=float, default=0.03, help="adaptive tree confidence threshold")
     p.add_argument("--root-k", type=int, default=10, help="adaptive tree top-K width of the root layer")
     p.add_argument("--adaptive-max-depth", type=int, default=0, help="optional adaptive tree depth cap (0 = none)")
+    p.add_argument("--adaptive-fill", action="store_true",
+                   help="with --adaptive-max-depth: fill the budget left at the cap from built layers")
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--max-new-tokens", type=int, default=1024)
     p.add_argument("--max-length", type=int, default=4096, help="KV cache size; keep fixed across runs")
@@ -88,7 +90,7 @@ def main():
     if args.adaptive:
         if args.eagle1:
             p.error("--adaptive needs an EAGLE-3 drafter")
-        adaptive = AdaptiveConfig(args.budget, args.mu, args.root_k, args.adaptive_max_depth).validate()
+        adaptive = AdaptiveConfig(args.budget, args.mu, args.root_k, args.adaptive_max_depth, args.adaptive_fill).validate()
         tree = None
         spec_name, spec_meta = adaptive.name, {"adaptive": adaptive.to_dict()}
     else:
