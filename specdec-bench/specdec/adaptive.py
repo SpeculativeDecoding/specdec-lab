@@ -69,7 +69,8 @@ class AdaptiveConfig:
 
     @property
     def name(self) -> str:
-        return f"adaptive_n{self.budget}_mu{self.mu:g}_k{self.root_k}"
+        cap = f"_d{self.max_depth}" if self.max_depth else ""   # unchanged name when uncapped
+        return f"adaptive_n{self.budget}_mu{self.mu:g}_k{self.root_k}{cap}"
 
     def to_dict(self) -> Dict:
         return {"budget": self.budget, "mu": self.mu, "root_k": self.root_k,

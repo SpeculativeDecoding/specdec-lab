@@ -88,7 +88,7 @@ def instrument_drafting(model, static_depth: Optional[int]):
     """
     layer = model.ea_layer
     inner = layer.topK_genrate
-    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0}
+    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0, "layer_nodes": []}
     model._draft_stats = stats
 
     def wrapped(*args, **kwargs):
@@ -103,6 +103,14 @@ def instrument_drafting(model, static_depth: Optional[int]):
             stats["forwards"] += 1 + static_depth
             stats["depth_sum"] += int(out[3].max())          # tree_position_ids
             stats["nodes_sum"] += int(out[0].shape[1])       # draft_tokens incl. root
+        # nodes per tree depth (index 0 = root), summed over calls: the tree's width by layer
+        pos = out[3]
+        pos = pos.flatten().tolist() if hasattr(pos, "flatten") else list(pos)
+        for d in pos:
+            d = int(d)
+            if d >= len(stats["layer_nodes"]):
+                stats["layer_nodes"].extend([0] * (d + 1 - len(stats["layer_nodes"])))
+            stats["layer_nodes"][d] += 1
         return out
 
     layer.topK_genrate = wrapped
@@ -158,7 +166,7 @@ class EagleRunner:
         stats = getattr(self.model, "_draft_stats", None)
         if stats is not None:
             for k in stats:
-                stats[k] = 0
+                stats[k] = [] if isinstance(stats[k], list) else 0
         x = self.to_device(input_ids)
         self.sync()
         t0 = time.perf_counter()
@@ -195,6 +203,8 @@ class EagleRunner:
             rec["delta"] = stats["forwards"] / rec["verify_steps"]
             rec["mean_tree_depth"] = stats["depth_sum"] / stats["calls"]
             rec["mean_tree_nodes"] = stats["nodes_sum"] / stats["calls"]
+            # mean nodes at each depth of the verified tree, [root, depth 1, depth 2, ...]
+            rec["mean_layer_nodes"] = [n / stats["calls"] for n in stats["layer_nodes"]]
         return rec
 
     def run_question(self, q: Dict, mode: str, seed: int = 0) -> List[Dict]:

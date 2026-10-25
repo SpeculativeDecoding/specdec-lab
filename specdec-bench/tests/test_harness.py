@@ -542,3 +542,29 @@ class TestScriptsCompile(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestLayerWidths(unittest.TestCase):
+    def test_instrument_records_nodes_per_depth(self):
+        from specdec.eagle_runner import instrument_drafting
+
+        class Layer:
+            def topK_genrate(self, *a, **k):
+                # root, 3 nodes at depth 1, 2 at depth 2 (tree_position_ids is out[3])
+                import numpy as np   # tensor stand-in: .max(), .shape, .flatten(), .tolist()
+                return np.zeros((1, 6)), None, None, np.array([0, 1, 1, 1, 2, 2])
+
+        class Model:
+            ea_layer = Layer()
+
+        m = Model()
+        stats = instrument_drafting(m, static_depth=2)
+        m.ea_layer.topK_genrate()
+        m.ea_layer.topK_genrate()
+        self.assertEqual(stats["layer_nodes"], [2, 6, 4])
+        self.assertEqual(stats["calls"], 2)
+
+    def test_capped_adaptive_name(self):
+        from specdec.adaptive import AdaptiveConfig
+        self.assertEqual(AdaptiveConfig(60, 0.03, 10).name, "adaptive_n60_mu0.03_k10")
+        self.assertEqual(AdaptiveConfig(60, 0.03, 10, 5).name, "adaptive_n60_mu0.03_k10_d5")
