@@ -460,3 +460,205 @@ def reference_adaptive_tree(root_logp: List[float], child_logp, budget: int, mu:
         layer = [(c[2], c[3]) for c in passing]
         nodes += layer
     return nodes
+
+
+# ----------------------------------------------------------------------------- fixed templates
+@dataclass(frozen=True)
+class TemplateConfig:
+    """A fixed tree shape: exactly widths[d] verified nodes at depth d + 1 (root excluded).
+
+    branch: children each expanded node proposes (its top-`branch` draft tokens).
+    expand: nodes of each layer that are drafted further, best cumulative score first
+            (0 = all). EAGLE's static tree ties both to one top_k; here they are separate.
+    Each layer keeps the best widths[d] of its candidates by cumulative log-prob, so the
+    tree has exactly 1 + sum(widths) = budget nodes and len(widths) layers.
+    """
+    widths: tuple
+    branch: int = 10
+    expand: int = 0
+    label: str = ""
+
+    @property
+    def budget(self) -> int:
+        return 1 + sum(self.widths)
+
+    @property
+    def root_k(self) -> int:              # sizes EAGLE's unused static buffers at load time
+        return self.widths[0]
+
+    def validate(self) -> "TemplateConfig":
+        if not self.widths or any(int(w) < 1 for w in self.widths):
+            raise ValueError("widths must be positive")
+        if self.branch < 1 or self.expand < 0:
+            raise ValueError("branch must be >= 1 and expand >= 0")
+        for d in range(1, len(self.widths)):
+            n_exp = self.widths[d - 1] if not self.expand else min(self.expand, self.widths[d - 1])
+            if self.widths[d] > n_exp * self.branch:
+                raise ValueError(f"layer {d + 1}: width {self.widths[d]} > {n_exp} expanded x "
+                                 f"{self.branch} children")
+        return self
+
+    @property
+    def name(self) -> str:
+        tag = self.label or "w" + "-".join(str(w) for w in self.widths)
+        return f"tmpl_{tag}_b{self.branch}_e{self.expand or 'all'}"
+
+    def to_dict(self) -> Dict:
+        return {"widths": list(self.widths), "branch": self.branch, "expand": self.expand,
+                "budget": self.budget, "label": self.label, "name": self.name}
+
+
+PROFILES = {
+    "down": lambda d, L: L - d + 1,               # wide at the top, narrowing
+    "flat": lambda d, L: 1,
+    "up": lambda d, L: d,                         # narrow at the top, widening (EAGLE-3-like)
+    "diamond": lambda d, L: min(d, L - d + 1),    # widest in the middle
+}
+
+
+def profile_widths(profile: str, depth: int, budget: int) -> tuple:
+    """`depth` layer widths following `profile`, scaled to hold exactly budget - 1 nodes
+    (largest-remainder rounding, every layer at least 1)."""
+    if profile not in PROFILES:
+        raise ValueError(f"profile must be one of {sorted(PROFILES)}")
+    n = budget - 1
+    if not 1 <= depth <= n:
+        raise ValueError(f"depth must be in 1..{n}")
+    f = [PROFILES[profile](d, depth) for d in range(1, depth + 1)]
+    raw = [n * x / sum(f) for x in f]
+    w = [max(1, int(r)) for r in raw]
+    order = sorted(range(depth), key=lambda i: raw[i] - int(raw[i]), reverse=True)
+    i = 0
+    while sum(w) < n:
+        w[order[i % depth]] += 1
+        i += 1
+    while sum(w) > n:                              # only when the max(1, .) floor overshoots
+        j = max(range(depth), key=lambda k: w[k])
+        w[j] -= 1
+    if profile in ("down", "up"):                  # rounding must not break the monotone shape
+        w = sorted(w, reverse=(profile == "down"))
+    return tuple(w)
+
+
+def geometric_widths(first: int, ratio: float, budget: int) -> tuple:
+    """Widths first, first*ratio, first*ratio^2, ... (rounded, at least 1) until they hold
+    budget - 1 nodes; the last layer is trimmed so the total is exact."""
+    widths, left, w = [], budget - 1, float(first)
+    while left > 0:
+        n = min(max(1, int(round(w))), left)
+        widths.append(n)
+        left -= n
+        w *= ratio
+        if len(widths) > budget:
+            raise ValueError("ratio too small to fill the budget")
+    return tuple(widths)
+
+
+class TemplateDrafter(AdaptiveDrafter):
+    """Builds every draft tree from a fixed TemplateConfig (same EAGLE plumbing as adaptive)."""
+
+    def __init__(self, layer, cfg: TemplateConfig, ops=None):
+        super().__init__(layer, AdaptiveConfig(cfg.budget, 1.0, cfg.widths[0]), ops)
+        self.tmpl = cfg
+
+    def _expanded(self, score, n):
+        """Local indices of the nodes to draft further: the best `expand` by score, in order."""
+        e = self.tmpl.expand
+        if not e or e >= n:
+            return None                                  # all of them
+        _, best = self.ops.topk(score, e)
+        return self.ops.sort(best)
+
+    def topK_genrate(self, hidden_states, input_ids, head, logits_processor):
+        ops, L, T = self.ops, self.layer, self.tmpl
+        dev = ops.device(hidden_states)
+
+        # --- identical to cnets.Model.topK_genrate: context forward + root distribution
+        input_ids = ops.to(input_ids, dev)
+        sample_token = input_ids[:, -1]
+        input_ids = input_ids[:, 1:]
+        len_posi = input_ids.shape[1]
+        L.reset()
+        if getattr(L, "stable_kv", None) is not None:
+            kv_len = L.stable_kv[0][0].shape[2]
+            out_hidden, past_key_values = L(hidden_states, input_ids=input_ids[:, kv_len:],
+                                            past_key_values=L.stable_kv, use_cache=True)
+        else:
+            out_hidden, past_key_values = L(hidden_states, input_ids=input_ids, use_cache=True)
+        L.stable_kv = past_key_values
+        last_hidden = out_hidden[:, -1]
+        root_logp = self._logp(last_hidden)
+        forwards = 1
+
+        parents: List[int] = [-1]
+        depths: List[int] = [0]
+        token_chunks = [sample_token]
+
+        # --- layer 1: the root's best widths[0] children
+        vals, idx = ops.topk(root_logp, T.widths[0])
+        tok, score = idx[0], vals[0]
+        n_new = int(tok.shape[0])
+        first = len(parents)
+        parents += [0] * n_new
+        depths += [1] * n_new
+        token_chunks.append(self._to_target_ids(tok))
+        ex = self._expanded(score, n_new)
+        sel = ex if ex is not None else ops.long_tensor(list(range(n_new)), device=dev)
+        cur_global = [first + int(i) for i in sel.tolist()]
+        cur_ids = self._to_target_ids(tok[sel])[None]
+        cur_scores = score[sel]
+        cur_hidden = ops.repeat_rows(last_hidden, len(cur_global))
+        tree_mask = ops.eye4_new(len(cur_global), dev)
+
+        # --- layers 2..: best widths[d] of the expanded nodes' top-`branch` children
+        for d in range(1, len(T.widths)):
+            L.tree_mask = tree_mask
+            position_ids = len_posi + ops.zeros_long(len(cur_global), dev)
+            out_hidden, past_key_values = L(cur_hidden, input_ids=cur_ids,
+                                            past_key_values=past_key_values,
+                                            position_ids=position_ids, use_cache=True)
+            len_posi += 1
+            forwards += 1
+            cu = self._logp(out_hidden[0]) + cur_scores[:, None]          # (n_expanded, V)
+            b = min(T.branch, cu.shape[-1])
+            vals, idx = ops.topk(cu, b)                                    # (n_expanded, b)
+            _, pos = ops.topk(ops.flatten(vals), T.widths[d])
+            pos = ops.sort(pos)                                            # parent-major
+            par, rank = pos // b, pos % b
+            tok, score = idx[par, rank], vals[par, rank]
+            n_new = int(tok.shape[0])
+            first = len(parents)
+            parents += [cur_global[int(p)] for p in par.tolist()]
+            depths += [d + 1] * n_new
+            tok_t = self._to_target_ids(tok)
+            token_chunks.append(tok_t)
+            if d == len(T.widths) - 1:
+                break
+            ex = self._expanded(score, n_new)
+            sel = ex if ex is not None else ops.long_tensor(list(range(n_new)), device=dev)
+            cur_global = [first + int(i) for i in sel.tolist()]
+            cur_hidden = out_hidden[:, par[sel]]
+            cur_ids = tok_t[sel][None]
+            cur_scores = score[sel]
+            tree_mask = ops.cat((tree_mask[:, :, par[sel]], ops.eye4(len(cur_global), tree_mask)), dim=3)
+
+        draft_tokens = ops.cat(token_chunks, dim=0)[None]
+        rows, pos_ids, retrieve = build_tree_outputs(parents, depths, logits_processor is not None)
+        self.last = {"forwards": forwards, "nodes": len(parents), "depth": max(depths),
+                     "widths": list(T.widths), "parents": parents, "depths": depths}
+        return (draft_tokens,
+                ops.long_tensor(retrieve),
+                ops.float_mask(rows),
+                ops.long_tensor(pos_ids, device=dev))
+
+
+def enable_template(model, cfg: TemplateConfig, ops=None) -> TemplateDrafter:
+    """Patch a loaded EaModel so every draft tree follows `cfg` (load with total_token = cfg.budget)."""
+    layer = model.ea_layer
+    if getattr(layer, "total_tokens", cfg.budget - 1) != cfg.budget - 1:
+        raise ValueError(f"load the model with total_token={cfg.budget} "
+                         f"(ea_layer.total_tokens={layer.total_tokens})")
+    drafter = TemplateDrafter(layer, cfg, ops)
+    layer.topK_genrate = types.MethodType(lambda _self, *a, **k: drafter.topK_genrate(*a, **k), layer)
+    layer.adaptive = drafter          # instrument_drafting reads .last from here
+    return drafter

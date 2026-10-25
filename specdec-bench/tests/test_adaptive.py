@@ -466,3 +466,64 @@ class TestRunnerIntegration(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTemplateTrees(unittest.TestCase):
+    def _run(self, cfg, backend, seed=3, vocab=40):
+        from specdec.adaptive import TemplateDrafter
+        layer = FakeDraftLayer(vocab, seed=seed, backend=backend)
+        d = TemplateDrafter(layer, cfg.validate(), make_ops(backend))
+        input_ids = np.array([[int(layer.target_of[i % layer.V]) for i in range(7)]])
+        hidden = np.zeros((1, 6, 1))
+        out = d.topK_genrate(as_backend(hidden, backend), as_backend(input_ids, backend), None, None)
+        return d, [_np(x) for x in out]
+
+    def test_exact_widths_and_valid_tree(self):
+        from specdec.adaptive import TemplateConfig
+        for backend in BACKENDS:
+            for widths, branch, expand in [((10, 8, 6, 5, 4, 3, 2, 1), 10, 0), ((4, 8, 12, 10, 5), 4, 0),
+                                           ((10, 10, 10), 10, 2), ((2, 4, 8, 6), 2, 0)]:
+                cfg = TemplateConfig(widths, branch, expand)
+                d, (tok, retrieve, mask, pos) = self._run(cfg, backend)
+                self.assertEqual(tok.shape[1], cfg.budget)
+                counts = np.bincount(pos.astype(int), minlength=len(widths) + 1)
+                self.assertEqual(list(counts[1:]), list(widths))
+                self.assertEqual(d.last["forwards"], len(widths))      # context pass + one per extra layer
+                parents = parents_from_mask(mask)
+                for i in range(1, tok.shape[1]):
+                    self.assertLess(parents[i], i)
+                    self.assertEqual(int(pos[i]), int(pos[parents[i]]) + 1)
+
+    def test_expand_limits_which_nodes_get_children(self):
+        from specdec.adaptive import TemplateConfig
+        d, (tok, retrieve, mask, pos) = self._run(TemplateConfig((10, 10, 10), 10, 2), "numpy")
+        parents = parents_from_mask(mask)
+        for depth in (1, 2):
+            kids_of = {parents[i] for i in range(1, len(parents)) if pos[i] == depth + 1}
+            self.assertLessEqual(len(kids_of), 2)                      # at most `expand` parents
+
+    def test_geometric_widths_and_validation(self):
+        from specdec.adaptive import TemplateConfig, geometric_widths
+        w = geometric_widths(10, 0.8, 60)
+        self.assertEqual(sum(w), 59)
+        self.assertEqual(w[:3], (10, 8, 6))
+        self.assertEqual(sum(geometric_widths(4, 1.25, 60)), 59)
+        with self.assertRaises(ValueError):
+            TemplateConfig((2, 30), branch=4).validate()               # 30 > 2 expanded x 4 children
+        self.assertEqual(TemplateConfig((4, 4), 4, 2, "x").name, "tmpl_x_b4_e2")
+
+
+class TestProfileWidths(unittest.TestCase):
+    def test_profiles_hold_the_budget(self):
+        from specdec.adaptive import TemplateConfig, profile_widths
+        for prof in ("down", "flat", "up", "diamond"):
+            for depth in (1, 3, 5, 8, 12, 30):
+                w = profile_widths(prof, depth, 60)
+                self.assertEqual((len(w), sum(w)), (depth, 59))
+                self.assertTrue(all(x >= 1 for x in w))
+                TemplateConfig(w, 10, 0).validate()
+        self.assertEqual(profile_widths("flat", 5, 60), (12, 12, 12, 12, 11))
+        w = profile_widths("up", 3, 60)
+        self.assertTrue(w[0] < w[1] < w[2])
+        w = profile_widths("down", 4, 60)
+        self.assertTrue(w[0] > w[1] > w[2] > w[3])

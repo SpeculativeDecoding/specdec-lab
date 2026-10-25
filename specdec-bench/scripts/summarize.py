@@ -38,6 +38,10 @@ def describe(meta):
     alg = "eagle3" if meta.get("use_eagle3", True) else "eagle1"
     if meta["mode"] != "spec":
         return "ar", meta["mode"], {}
+    if meta.get("template"):
+        t = meta["template"]
+        return f"{alg}_{t['name']}", "template", {"num_draft_tokens": t["budget"],
+                                                  "steps": len(t["widths"]), "topk": t["branch"]}
     adaptive = meta.get("adaptive")
     if adaptive is None:
         adaptive = next((value for value in meta.values()
