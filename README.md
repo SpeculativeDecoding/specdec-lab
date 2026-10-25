@@ -2,20 +2,20 @@
 
 We are exploring speculative decoding techniques and optimizations.
 
-# Existing work: 
+### Existing work: 
 PRISM (MLSys’26), EAGLE-3 (NeurIPS’25), EAGLE (ICML’24), TALON(2026)
 
-# Objective: 
+### Objective: 
 Comparison of best-performing tree shape per workload
 
-# Research question: 
+### Research question: 
 Under a fixed candidate budget, can a tree strategy be chosen for a workload?
 
-# Method: 
+### Method: 
 Evaluate existing works on SGLang as testing env. Eg. EAGLE-3 drafter EAGLE3-LLaMA3.1-Instruct-8B
 
-# Metrics: 
+### Metrics: 
 Measure acceptance by draft step, accepted tokens per target pass, end-to-end tokens/s.
 
-# Data: 
+### Data: 
 MT-Bench, HumanEval, GSM8K, Alpaca, CNN/DailyMail and Natural Questions
