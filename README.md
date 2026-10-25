@@ -1,4 +1,4 @@
-# Speculative Decoding Lab
+## Speculative Decoding Project Lab
 
 We are exploring speculative decoding techniques and optimizations.
 
