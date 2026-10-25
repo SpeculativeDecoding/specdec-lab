@@ -568,3 +568,23 @@ class TestLayerWidths(unittest.TestCase):
         from specdec.adaptive import AdaptiveConfig
         self.assertEqual(AdaptiveConfig(60, 0.03, 10).name, "adaptive_n60_mu0.03_k10")
         self.assertEqual(AdaptiveConfig(60, 0.03, 10, 5).name, "adaptive_n60_mu0.03_k10_d5")
+
+
+class TestTreeParents(unittest.TestCase):
+    def test_parents_from_mask_and_depths(self):
+        from specdec.eagle_runner import tree_parents
+        import numpy as np
+        #        root  a(1) b(1) c(2, under b) d(2, under a)
+        mask = np.array([[1, 0, 0, 0, 0], [1, 1, 0, 0, 0], [1, 0, 1, 0, 0],
+                         [1, 0, 1, 1, 0], [1, 1, 0, 0, 1]])[None, None]
+        parents, depths = tree_parents(mask, np.array([0, 1, 1, 2, 2]))
+        self.assertEqual(parents, [-1, 0, 0, 2, 1])
+        self.assertEqual(depths, [0, 1, 1, 2, 2])
+
+    def test_summarize_names_template_runs(self):
+        sys.path.insert(0, os.path.join(ROOT, "scripts"))
+        import summarize
+        meta = {"path": "eagle_repo", "mode": "spec", "use_eagle3": True,
+                "template": {"name": "tmpl_g10r0.8_b10_eall", "budget": 60, "widths": [10, 8], "branch": 10}}
+        name, mode, tree = summarize.describe(meta)
+        self.assertEqual((name, mode, tree["num_draft_tokens"]), ("eagle3_tmpl_g10r0.8_b10_eall", "template", 60))

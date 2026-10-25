@@ -24,7 +24,7 @@ import time
 from typing import Callable, Dict, Iterable, List, Optional
 
 from .data import encode_messages, initial_messages, stop_token_ids, truncate_at_stop
-from .adaptive import AdaptiveConfig, enable_adaptive
+from .adaptive import AdaptiveConfig, TemplateConfig, enable_adaptive, enable_template
 from .tree_config import TreeConfig
 
 DEFAULT_BASE = "meta-llama/Llama-3.1-8B-Instruct"
@@ -34,11 +34,13 @@ DEFAULT_EAGLE3 = "yuhuili/EAGLE3-LLaMA3.1-Instruct-8B"
 def load_eagle_model(tree: Optional[TreeConfig], base_model_path: str = DEFAULT_BASE,
                      ea_model_path: str = DEFAULT_EAGLE3, use_eagle3: bool = True,
                      dtype: str = "float16", adaptive: Optional[AdaptiveConfig] = None,
-                     instrument: bool = True):
+                     instrument: bool = True, save_trees: int = 0):
     """Load target + draft exactly as the official llama3 eval script does.
 
     tree:  static EAGLE tree (steps/topk/budget). Ignored when `adaptive` is given.
-    adaptive: build every draft tree with adaptive tree (EAGLE-3 drafters only). The model is
+    save_trees: keep the first `save_trees` draft trees of every turn (parents and depths).
+    adaptive: an AdaptiveConfig (TALON) or a TemplateConfig (fixed widths per depth) that builds
+           every draft tree (EAGLE-3 drafters only). The model is
            loaded with total_token = adaptive.budget so EAGLE's length guard matches.
     """
     import torch  # imported lazily so the package imports without torch
@@ -72,14 +74,31 @@ def load_eagle_model(tree: Optional[TreeConfig], base_model_path: str = DEFAULT_
     got = getattr(model.ea_layer, "total_tokens", None)
     if got is not None and got != expect_total - 1:
         raise RuntimeError(f"ea_layer.total_tokens={got}, expected {expect_total - 1}")
-    if adaptive is not None:
+    if isinstance(adaptive, TemplateConfig):
+        enable_template(model, adaptive)
+    elif adaptive is not None:
         enable_adaptive(model, adaptive)
     if instrument:
-        instrument_drafting(model, static_depth=None if adaptive else tree.eagle_depth)
+        instrument_drafting(model, static_depth=None if adaptive else tree.eagle_depth,
+                            save_trees=save_trees)
     return model
 
 
-def instrument_drafting(model, static_depth: Optional[int]):
+def tree_parents(mask, pos):
+    """Parent of every node of an EAGLE draft tree (index 0 = root, parent -1), from its
+    attention mask (row i attends to i's ancestors) and depths (tree_position_ids)."""
+    m = mask.reshape(mask.shape[-2], mask.shape[-1]).tolist() if hasattr(mask, "reshape") else mask
+    pos = [int(x) for x in (pos.flatten().tolist() if hasattr(pos, "flatten") else pos)]
+    parents = [-1] * len(pos)
+    for i in range(1, len(pos)):
+        for j in range(len(pos)):
+            if m[i][j] and pos[j] == pos[i] - 1:
+                parents[i] = j
+                break
+    return parents, pos
+
+
+def instrument_drafting(model, static_depth: Optional[int], save_trees: int = 0):
     """Count draft forward passes and record realized tree depth per topK_genrate call.
 
     Static EAGLE runs exactly 1 + depth draft passes per call (context pass + `depth`
@@ -88,7 +107,7 @@ def instrument_drafting(model, static_depth: Optional[int]):
     """
     layer = model.ea_layer
     inner = layer.topK_genrate
-    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0, "layer_nodes": []}
+    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0, "layer_nodes": [], "trees": []}
     model._draft_stats = stats
 
     def wrapped(*args, **kwargs):
@@ -111,6 +130,9 @@ def instrument_drafting(model, static_depth: Optional[int]):
             if d >= len(stats["layer_nodes"]):
                 stats["layer_nodes"].extend([0] * (d + 1 - len(stats["layer_nodes"])))
             stats["layer_nodes"][d] += 1
+        if len(stats["trees"]) < save_trees:
+            parents, depths = tree_parents(out[2], out[3])
+            stats["trees"].append({"parents": parents, "depths": depths})
         return out
 
     layer.topK_genrate = wrapped
@@ -205,6 +227,8 @@ class EagleRunner:
             rec["mean_tree_nodes"] = stats["nodes_sum"] / stats["calls"]
             # mean nodes at each depth of the verified tree, [root, depth 1, depth 2, ...]
             rec["mean_layer_nodes"] = [n / stats["calls"] for n in stats["layer_nodes"]]
+            if stats["trees"]:
+                rec["sample_trees"] = list(stats["trees"])
         return rec
 
     def run_question(self, q: Dict, mode: str, seed: int = 0) -> List[Dict]:

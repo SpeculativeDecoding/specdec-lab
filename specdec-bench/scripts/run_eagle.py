@@ -60,6 +60,15 @@ def main():
     p.add_argument("--mu", type=float, default=0.03, help="adaptive tree confidence threshold")
     p.add_argument("--root-k", type=int, default=10, help="adaptive tree top-K width of the root layer")
     p.add_argument("--adaptive-max-depth", type=int, default=0, help="optional adaptive tree depth cap (0 = none)")
+    p.add_argument("--template", default="",
+                   help="fixed tree: widths per depth, e.g. 10,8,6,5,4,3 (sum = budget - 1), or "
+                        "shape:<down|flat|up|diamond>:<depth> scaled to the budget, or "
+                        "geo:<first>:<ratio> for first, first*ratio, ... filling the budget")
+    p.add_argument("--template-branch", type=int, default=10, help="children per expanded node")
+    p.add_argument("--template-expand", type=int, default=0, help="nodes drafted further per layer (0 = all)")
+    p.add_argument("--template-label", default="", help="short name for the template in file names")
+    p.add_argument("--save-trees", type=int, default=0,
+                   help="save the first N draft trees of every turn (parents, depths) for plotting")
     p.add_argument("--adaptive-fill", action="store_true",
                    help="with --adaptive-max-depth: fill the budget left at the cap from built layers")
     p.add_argument("--temperature", type=float, default=0.0)
@@ -87,7 +96,26 @@ def main():
     if len(benches) == 1 and not args.with_ar and not (args.out or args.out_dir):
         p.error("give --out or --out-dir")
 
-    if args.adaptive:
+    if args.template:
+        from specdec.adaptive import TemplateConfig, geometric_widths
+        if args.adaptive or args.eagle1:
+            p.error("--template needs an EAGLE-3 drafter and excludes --adaptive")
+        if args.template.startswith("shape:"):
+            from specdec.adaptive import profile_widths
+            _, prof, depth = args.template.split(":")
+            widths = profile_widths(prof, int(depth), args.budget)
+        elif args.template.startswith("geo:"):
+            _, first, ratio = args.template.split(":")
+            widths = geometric_widths(int(first), float(ratio), args.budget)
+        else:
+            widths = tuple(int(x) for x in args.template.split(","))
+        adaptive = TemplateConfig(widths, args.template_branch, args.template_expand,
+                                  args.template_label).validate()
+        if adaptive.budget != args.budget:
+            p.error(f"template holds {adaptive.budget} nodes, --budget is {args.budget}")
+        tree = None
+        spec_name, spec_meta = adaptive.name, {"template": adaptive.to_dict()}
+    elif args.adaptive:
         if args.eagle1:
             p.error("--adaptive needs an EAGLE-3 drafter")
         adaptive = AdaptiveConfig(args.budget, args.mu, args.root_k, args.adaptive_max_depth, args.adaptive_fill).validate()
@@ -98,7 +126,8 @@ def main():
         tree = TreeConfig(args.steps, args.topk, args.budget).validate()
         spec_name, spec_meta = tree.name, {"tree": tree.to_dict()}
     model = load_eagle_model(tree, args.base_model, args.ea_model,
-                             use_eagle3=not args.eagle1, dtype=args.dtype, adaptive=adaptive)
+                             use_eagle3=not args.eagle1, dtype=args.dtype, adaptive=adaptive,
+                             save_trees=args.save_trees)
     runner = EagleRunner(model, max_new_tokens=args.max_new_tokens,
                          max_length=args.max_length, temperature=args.temperature)
 
@@ -111,6 +140,7 @@ def main():
             meta = {"path": "eagle_repo", "bench": bench, "mode": mode, "subset": args.subset,
                     "tree": spec_meta.get("tree") if mode == "spec" else None,
                     "adaptive": spec_meta.get("adaptive") if mode == "spec" else None,
+                    "template": spec_meta.get("template") if mode == "spec" else None,
                     "base_model": args.base_model, "ea_model": args.ea_model,
                     "use_eagle3": not args.eagle1, "temperature": args.temperature,
                     "max_new_tokens": args.max_new_tokens, "max_length": args.max_length,
