@@ -11,3 +11,5 @@ server.log
 ruvector.db
 .DS_Store
 .swarm/
+# inputs copied in for the CHTC mismatch-diagnosis job
+diag_inputs/
