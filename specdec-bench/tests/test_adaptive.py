@@ -196,6 +196,39 @@ class TestAdaptiveBehaviour(unittest.TestCase):
         self.assertEqual(d.last["depth"], 4)
         self.assertEqual(tok.shape[1], 1 + 2 + 1 + 1 + 1)
 
+    def test_fill_spends_the_whole_budget_within_the_cap(self):
+        for backend in BACKENDS:
+            for seed, mu, cap in [(2, 1.0, 4), (7, 0.03, 3), (11, 0.1, 5)]:
+                base_layer = FakeDraftLayer(40, seed=seed, backend=backend)
+                d0, (tok0, *_), _ = run_adaptive(base_layer, AdaptiveConfig(40, mu, 4, max_depth=cap), backend)
+                layer = FakeDraftLayer(40, seed=seed, backend=backend)
+                d, (tok, retrieve, mask, pos), _ = run_adaptive(
+                    layer, AdaptiveConfig(40, mu, 4, max_depth=cap, fill=True), backend)
+                n = tok.shape[1]
+                self.assertEqual(n, 40)                                  # full budget
+                self.assertLessEqual(int(pos.max()), cap)                # never deeper than the cap
+                self.assertEqual(d.last["forwards"], d0.last["forwards"])  # no extra draft pass
+                self.assertEqual(d.last["filled"], 40 - tok0.shape[1])
+                self.assertTrue(np.array_equal(tok[0, :tok0.shape[1]], tok0[0]))  # capped tree kept as is
+                parents = parents_from_mask(mask)
+                for i in range(1, n):                                    # valid tree: parent precedes child
+                    self.assertLess(parents[i], i)
+                    self.assertEqual(int(pos[i]), int(pos[parents[i]]) + 1)
+
+    def test_fill_only_uses_layers_already_built(self):
+        layer = FakeDraftLayer(12, seed=4)
+        d, (tok, retrieve, mask, pos), _ = run_adaptive(layer, AdaptiveConfig(20, 1.0, 2, max_depth=2, fill=True), "numpy")
+        # mu = 1, cap 2: capped tree = root + 2 + 1 = 4 nodes, so 16 leaves are filled, all from
+        # the root's and the depth-1 nodes' candidates (depth <= 2), with no new draft pass
+        self.assertEqual(tok.shape[1], 20)
+        self.assertEqual(d.last["filled"], 16)
+        self.assertEqual(int(pos.max()), 2)
+
+    def test_fill_needs_a_cap(self):
+        with self.assertRaises(ValueError):
+            AdaptiveConfig(60, 0.03, 10, fill=True).validate()
+        self.assertEqual(AdaptiveConfig(60, 0.03, 10, 9, True).name, "adaptive_n60_mu0.03_k10_d9_fill")
+
     def test_sampling_sort_matches_eagle(self):
         layer = FakeDraftLayer(40, seed=5)
         d, (tok, retrieve, mask, pos), _ = run_adaptive(layer, AdaptiveConfig(32, 0.05, 6), "numpy",

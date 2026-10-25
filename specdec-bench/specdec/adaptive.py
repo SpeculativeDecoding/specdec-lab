@@ -55,6 +55,8 @@ class AdaptiveConfig:
     mu: float = 0.03        # confidence threshold, 0 < mu <= 1
     root_k: int = 10        # K: width of the forced top-K root layer
     max_depth: int = 0      # optional safety cap on layers (0 = none, as in the paper)
+    fill: bool = False      # with max_depth: spend budget left at the cap on the best unused
+                            # candidates of the layers already built (no extra draft passes)
 
     def validate(self) -> "AdaptiveConfig":
         if self.budget < 2:
@@ -63,6 +65,8 @@ class AdaptiveConfig:
             raise ValueError("mu must be in (0, 1]")
         if self.root_k < 1:
             raise ValueError("root_k must be >= 1")
+        if self.fill and not self.max_depth:
+            raise ValueError("fill only applies with a depth cap (max_depth > 0)")
         if self.max_depth < 0:
             raise ValueError("max_depth must be >= 0")
         return self
@@ -70,11 +74,12 @@ class AdaptiveConfig:
     @property
     def name(self) -> str:
         cap = f"_d{self.max_depth}" if self.max_depth else ""   # unchanged name when uncapped
-        return f"adaptive_n{self.budget}_mu{self.mu:g}_k{self.root_k}{cap}"
+        fill = "_fill" if self.fill else ""
+        return f"adaptive_n{self.budget}_mu{self.mu:g}_k{self.root_k}{cap}{fill}"
 
     def to_dict(self) -> Dict:
         return {"budget": self.budget, "mu": self.mu, "root_k": self.root_k,
-                "max_depth": self.max_depth, "name": self.name}
+                "max_depth": self.max_depth, "fill": self.fill, "name": self.name}
 
 
 # ----------------------------------------------------------------------------- tensor ops
@@ -267,6 +272,42 @@ class AdaptiveDrafter:
         self.max_layers = cfg.max_depth or cfg.budget  # depth can never exceed N - 1 anyway
         self.last: Dict = {}
 
+    def _fill(self, layers, room, parents, depths, token_chunks):
+        """Append the `room` best unused candidates over all recorded layers as leaves."""
+        ops = self.ops
+        vals_all, meta = [], []
+        for li, (cu, par_ids, kept, child_depth) in enumerate(layers):
+            m = min(max(kept) + room, cu.shape[-1])
+            vals, idx = ops.topk(cu, m)                      # (n_par, m), each row descending
+            pos = _fill_candidates(kept, m)
+            if not pos:
+                continue
+            pos_t = ops.long_tensor(pos, device=ops.device(cu))
+            vals_all.append(ops.flatten(vals)[pos_t])
+            meta.append((li, ops.flatten(idx)[pos_t], pos, m))
+        if not vals_all:
+            return 0
+        flat = ops.cat(vals_all, dim=0)
+        k = min(room, int(flat.shape[0]))
+        _, best = ops.topk(flat, k)
+        bounds, start = [], 0
+        for li, toks, pos, m in meta:
+            bounds.append((start, start + len(pos), li, toks, pos, m))
+            start += len(pos)
+        picks = []
+        for b in sorted(int(x) for x in best.tolist()):
+            for lo, hi, li, toks, pos, m in bounds:
+                if lo <= b < hi:
+                    par_ids, child_depth = layers[li][1], layers[li][3]
+                    picks.append((par_ids[pos[b - lo] // m], toks[b - lo], child_depth))
+                    break
+        tok_t = self._to_target_ids(ops.cat([t[None] for _, t, _ in picks], dim=0))
+        for parent, _, d in picks:
+            parents.append(parent)
+            depths.append(d)
+        token_chunks.append(tok_t)
+        return len(picks)
+
     def _to_target_ids(self, idx):
         L = self.layer
         if L.config.vocab_size == L.config.draft_vocab_size:
@@ -317,6 +358,8 @@ class AdaptiveDrafter:
         cur_scores = score
         tree_mask = ops.eye4_new(n_new, dev)       # float32 eye, as EAGLE's tree_mask_init
         depth = 1
+        # every layer's candidate scores, for `fill`: (cu, parent ids, children kept per parent, depth)
+        layers = [(root_logp, [0], [n_new], 1)] if self.cfg.fill else None
 
         # --- layers d >= 1: confidence-gated expansion until |T| = N
         while len(parents) < N and depth < self.max_layers:
@@ -332,6 +375,11 @@ class AdaptiveDrafter:
             tok_t = self._to_target_ids(tok)
             par_list = [int(x) for x in par.tolist()]
             n_new = len(par_list)
+            if layers is not None:
+                kept = [0] * len(cur_global)
+                for p in par_list:
+                    kept[p] += 1
+                layers.append((cu, list(cur_global), kept, depth + 1))
             first = len(parents)
             parents += [cur_global[p] for p in par_list]
             depths += [depth + 1] * n_new
@@ -344,15 +392,27 @@ class AdaptiveDrafter:
             tree_mask = ops.cat((tree_mask[:, :, par], ops.eye4(n_new, tree_mask)), dim=3)
             depth += 1
 
+        # --- fill: the cap stopped the tree under budget; add the best unused candidates of the
+        # layers already built as leaves (cumulative score, EAGLE-2's rule), no new draft pass
+        filled = 0
+        if layers is not None and len(parents) < N:
+            filled = self._fill(layers, N - len(parents), parents, depths, token_chunks)
+
         # --- EAGLE-format outputs
         draft_tokens = ops.cat(token_chunks, dim=0)[None]
         rows, pos, retrieve = build_tree_outputs(parents, depths, logits_processor is not None)
         self.last = {"forwards": forwards, "nodes": len(parents), "depth": max(depths),
-                     "widths": widths}
+                     "widths": widths, "filled": filled}
         return (draft_tokens,
                 ops.long_tensor(retrieve),
                 ops.float_mask(rows),
                 ops.long_tensor(pos, device=dev))
+
+
+def _fill_candidates(kept, m):
+    """Flat (parent * m + rank) positions of each parent's unused top-m children: TALON keeps a
+    prefix of each parent's ranking (the gate and the budget cut are both monotone in score)."""
+    return [p * m + r for p, c in enumerate(kept) for r in range(c, m)]
 
 
 def enable_adaptive(model, cfg: AdaptiveConfig, ops=None) -> AdaptiveDrafter:
