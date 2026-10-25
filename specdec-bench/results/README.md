@@ -23,6 +23,8 @@ below are each one run of `scripts/run_adaptive_suite.sh` (cell 7 of the Colab n
 | `dxw80_sweep_{humaneval,gsm8k,sum,qa}_h200/` | CHTC H200 | Path B: depth × width = 80, from 1 × 80 to 40 × 2 (one warm-up per run) |
 | `width_grid_humaneval_gsm8k_mt_bench_h200/` | CHTC H200 | Path B: 12 × 4, 20 × 2, 20 × 4, 1 × 20, 2 × 20, 4 × 16 |
 | `summary_vs_eagle3.csv` | CHTC H200 | The headline table below (`scripts/compare_vs_eagle3.py`) |
+| `talon_depthcap_v2_{gsm8k,humaneval,qa,sum}_h200/` | CHTC H200 | Path B: TALON capped at EAGLE-3's best depth, with and without filling the budget, and with root width 16 (`scripts/run_talon_depthcap.sh`) |
+| `talon_depthcap_{gsm8k,humaneval,qa,sum}_h200/` | CHTC H200 | First depth-cap runs, cap one layer too short (EAGLE-3 and uncapped-TALON rows still valid) |
 
 Each folder has a `summary.csv` (one row per benchmark and configuration) and the per-answer
 `.jsonl` files.
@@ -176,6 +178,56 @@ Width grid (ratio of speedups over each run's own plain decoding, against the de
 EAGLE-3's 8 × 10 comes out the same with one warm-up per run (depth × width = 80 sweep) and with
 three (depth grid), within 2% on all four shared workloads (HumanEval 4.53× vs 4.43×, GSM8K 3.97×
 vs 3.96×, Sum 3.37× vs 3.40×, QA 3.48× vs 3.46×).
+
+### TALON held to EAGLE-3's best depth
+
+`talon_depthcap_v2_*_h200/` caps TALON at the number of layers of EAGLE-3's best fixed tree for
+each workload, taken from the depth × width = 80 sweep:
+- 8 × 10, 9 layers, for GSM8K and HumanEval;
+- 5 × 16, 6 layers, for QA and Sum. EAGLE "depth D" (`--steps D+1`) builds D + 1 layers below the root.
+
+The runs compared are:
+- **capped TALON** as is;
+- **capped + fill** (`--adaptive-fill`): budget left at the cap goes to the best unused candidates
+  of the built layers, so the tree verifies all 60 tokens with no extra draft pass;
+- **TALON with root width 16**, EAGLE-3's best width for QA and Sum.
+
+Speed is relative to EAGLE-3's best tree in the same job:
+
+| Workload | TALON | TALON capped | TALON capped + fill | TALON root 16 | Root 16, capped | Root 16, capped + fill |
+| --- | --- | --- | --- | --- | --- | --- |
+| GSM8K | 1.01 | 1.00 | 1.01 | – | – | – |
+| HumanEval | 0.99 | 0.99 | 0.98 | – | – | – |
+| QA | 1.04 | 0.97 | 0.99 | 1.02 | 0.98 | 0.96 |
+| Sum | 0.97 | 0.98 | 0.98 | 1.02 | 0.99 | 0.97 |
+
+Configurations repeated between the first and corrected runs differ by 2–3%, so every entry is
+within noise of EAGLE-3's best fixed tree.
+
+- **Capping TALON at EAGLE-3's best depth never helps (0.96–1.00).** Capped trees verify only 50–57
+  of 60 tokens. Filling the rest barely changes τ (GSM8K 6.03 → 6.04, QA 4.77 → 4.86), because the
+  extra leaves are rarely accepted.
+- **TALON's edge, where it has one, comes from depth beyond EAGLE-3's.** Uncapped, it puts about
+  6.6 of 60 nodes below depth 9 on HumanEval (down to depth 21), but only 1–2 on GSM8K, QA and Sum.
+
+Mean width at each depth (depth 1 onward; `mean_layer_nodes` in the `.jsonl` files):
+
+| Workload | Tree | Widths by depth |
+| --- | --- | --- |
+| GSM8K | EAGLE-3 8 × 10 | 3.1, 5.3, 6.8, 7.7, 8.2, 8.0, 7.6, 6.8, 5.6 |
+| GSM8K | TALON | 10, 5.4, 7.6, 8.6, 7.7, 6.3, 4.8, 3.3, 2.2, 1.3, then 1.7 deeper |
+| HumanEval | EAGLE-3 8 × 10 | 2.8, 4.7, 5.8, 6.6, 7.2, 7.6, 7.9, 8.0, 8.5 |
+| HumanEval | TALON | 10, 4.7, 5.9, 6.3, 6.1, 5.3, 4.5, 3.5, 3.2, 2.8, then 6.6 deeper |
+| QA | EAGLE-3 5 × 16 | 5.9, 9.7, 11.0, 11.2, 10.8, 10.3 |
+| QA | TALON | 10, 9.9, 11.6, 9.5, 6.3, 4.0, 2.5, 1.5, 0.9, 0.5, then 2.3 deeper |
+| Sum | EAGLE-3 5 × 16 | 4.9, 9.0, 11.0, 11.6, 11.5, 11.0 |
+| Sum | TALON | 10, 8.6, 11.2, 9.3, 6.8, 4.7, 3.0, 1.9, 1.3, 0.8, then 1.2 deeper |
+
+- **The two methods build opposite shapes.** EAGLE-3's global top-59 keeps only 3–6 first-layer
+  nodes and widens with depth. TALON always keeps 10 (or 16) at depth 1 and narrows below.
+- **TALON does reshape by workload, in the predicted direction:** narrow middle layers (5–6 nodes)
+  and a deep tail on code; wide middle layers (10–12 nodes) and a short tail on QA and Sum. That
+  reshaping does not translate into speed over a per-workload fixed tree.
 
 ## Earlier Path B findings (A100, H200, L40S)
 
