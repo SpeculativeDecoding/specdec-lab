@@ -402,7 +402,7 @@ class AdaptiveDrafter:
         draft_tokens = ops.cat(token_chunks, dim=0)[None]
         rows, pos, retrieve = build_tree_outputs(parents, depths, logits_processor is not None)
         self.last = {"forwards": forwards, "nodes": len(parents), "depth": max(depths),
-                     "widths": widths, "filled": filled}
+                     "widths": widths, "filled": filled, "parents": parents, "depths": depths}
         return (draft_tokens,
                 ops.long_tensor(retrieve),
                 ops.float_mask(rows),

@@ -98,6 +98,21 @@ def tree_parents(mask, pos):
     return parents, pos
 
 
+def tree_shape(parents, depths):
+    """[depth, widest layer, most nodes expanded in one layer, most children of one node]
+    of a draft tree given as parent indices (root = -1) and depths (root = 0)."""
+    width, children = {}, {}
+    for i, d in enumerate(depths):
+        if d:
+            width[d] = width.get(d, 0) + 1
+            children[parents[i]] = children.get(parents[i], 0) + 1
+    expanded = {}
+    for j in children:
+        expanded[depths[j]] = expanded.get(depths[j], 0) + 1
+    return [max(depths), max(width.values(), default=0), max(expanded.values(), default=0),
+            max(children.values(), default=0)]
+
+
 def instrument_drafting(model, static_depth: Optional[int], save_trees: int = 0):
     """Count draft forward passes and record realized tree depth per topK_genrate call.
 
@@ -107,7 +122,8 @@ def instrument_drafting(model, static_depth: Optional[int], save_trees: int = 0)
     """
     layer = model.ea_layer
     inner = layer.topK_genrate
-    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0, "layer_nodes": [], "trees": []}
+    stats = {"calls": 0, "forwards": 0, "depth_sum": 0, "nodes_sum": 0, "layer_nodes": [], "trees": [],
+             "shapes": []}
     model._draft_stats = stats
 
     def wrapped(*args, **kwargs):
@@ -118,6 +134,8 @@ def instrument_drafting(model, static_depth: Optional[int], save_trees: int = 0)
             stats["forwards"] += adaptive.last["forwards"]
             stats["depth_sum"] += adaptive.last["depth"]
             stats["nodes_sum"] += adaptive.last["nodes"]
+            if "parents" in adaptive.last:
+                stats["shapes"].append(tree_shape(adaptive.last["parents"], adaptive.last["depths"]))
         else:
             stats["forwards"] += 1 + static_depth
             stats["depth_sum"] += int(out[3].max())          # tree_position_ids
@@ -229,6 +247,10 @@ class EagleRunner:
             rec["mean_layer_nodes"] = [n / stats["calls"] for n in stats["layer_nodes"]]
             if stats["trees"]:
                 rec["sample_trees"] = list(stats["trees"])
+            if stats["shapes"]:
+                # every adaptive tree: [depth, widest layer, most nodes expanded in one layer,
+                # most children of one node]
+                rec["tree_shapes"] = list(stats["shapes"])
         return rec
 
     def run_question(self, q: Dict, mode: str, seed: int = 0) -> List[Dict]:
