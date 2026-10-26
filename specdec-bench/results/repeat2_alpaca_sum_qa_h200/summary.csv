@@ -1,0 +1,16 @@
+path,config,mode,bench,batch_size,temperature,steps,topk,budget,mu,root_k,n_turns,throughput_tok_s,tau,delta,mean_tree_depth,speedup,speedup_ci_lo,speedup_ci_hi,errors
+eagle_repo,ar,ar,alpaca,1,0.0,,,,,,80,44.21,,,,,,,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,alpaca,1,0.0,,,60,0.03,10,80,189.98,6.4145,6.619,6.433,4.297,4.1448,4.4488,0
+eagle_repo,eagle3_s6_k16_b60,spec,alpaca,1,0.0,6,16,60,,,80,181.24,5.8901,6.1603,5.993,4.0993,3.992,4.2023,0
+eagle_repo,eagle3_s7_k10_b60,spec,alpaca,1,0.0,7,10,60,,,80,187.66,6.3418,7.2013,6.979,4.2446,4.0946,4.3872,0
+eagle_repo,eagle3_s9_k10_b60,spec,alpaca,1,0.0,9,10,60,,,80,187.99,6.918,9.2786,8.714,4.252,4.0629,4.4443,0
+eagle_repo,ar,ar,qa,1,0.0,,,,,,80,43.91,,,,,,,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,qa,1,0.0,,,60,0.03,10,80,166.88,5.4704,6.1174,5.946,3.8005,3.4404,4.1736,0
+eagle_repo,eagle3_s6_k16_b60,spec,qa,1,0.0,6,16,60,,,80,153.94,5.0027,6.1592,5.919,3.5058,3.2725,3.7326,0
+eagle_repo,eagle3_s7_k10_b60,spec,qa,1,0.0,7,10,60,,,80,157.57,5.3196,7.1965,6.814,3.5885,3.2952,3.8546,0
+eagle_repo,eagle3_s9_k10_b60,spec,qa,1,0.0,9,10,60,,,80,151.76,5.5819,9.2667,8.184,3.4562,3.1224,3.7818,0
+eagle_repo,ar,ar,sum,1,0.0,,,,,,80,43.57,,,,,,,0
+eagle_repo,eagle3_adaptive_n60_mu0.03_k10,adaptive,sum,1,0.0,,,60,0.03,10,80,155.78,5.2074,6.0827,5.967,3.5752,3.5078,3.6437,0
+eagle_repo,eagle3_s6_k16_b60,spec,sum,1,0.0,6,16,60,,,80,152.13,4.9941,6.1128,5.971,3.4915,3.4381,3.5448,0
+eagle_repo,eagle3_s7_k10_b60,spec,sum,1,0.0,7,10,60,,,80,152.87,5.2325,7.1365,6.914,3.5084,3.4421,3.5739,0
+eagle_repo,eagle3_s9_k10_b60,spec,sum,1,0.0,9,10,60,,,80,147.24,5.4659,9.1805,8.424,3.3792,3.3091,3.4513,0

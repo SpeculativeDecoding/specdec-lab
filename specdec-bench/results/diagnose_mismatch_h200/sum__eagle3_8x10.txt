@@ -1,0 +1,18 @@
+       sum:245:0 @tok   53: spec ' and' (rank 2, p=0.351) vs plain '.' (rank 1, p=0.351), logit gap 0.000 -> fp16 near-tie
+       sum:253:0 @tok   74: spec ' gold' (rank 1, p=0.491) vs plain ' oil' (rank 2, p=0.483), logit gap 0.016 -> fp16 near-tie
+       sum:257:0 @tok  213: spec "'d" (rank 1, p=0.353) vs plain "'re" (rank 2, p=0.347), logit gap 0.016 -> fp16 near-tie
+       sum:258:0 @tok  411: spec ' to' (rank 2, p=0.461) vs plain ' implement' (rank 1, p=0.468), logit gap 0.016 -> fp16 near-tie
+       sum:261:0 @tok  102: spec ' lib' (rank 2, p=0.482) vs plain ' court' (rank 1, p=0.490), logit gap 0.016 -> fp16 near-tie
+       sum:265:0 @tok  199: spec ' of' (rank 2, p=0.500) vs plain ' and' (rank 1, p=0.500), logit gap 0.000 -> fp16 near-tie
+       sum:270:0 @tok  327: spec ' leave' (rank 2, p=0.364) vs plain ' reflect' (rank 1, p=0.370), logit gap 0.016 -> fp16 near-tie
+       sum:274:0 @tok  237: spec ' expressed' (rank 1, p=0.421) vs plain ' said' (rank 2, p=0.414), logit gap 0.016 -> fp16 near-tie
+       sum:276:0 @tok    7: spec ' midfielder' (rank 1, p=0.389) vs plain ' Spanish' (rank 2, p=0.383), logit gap 0.016 -> fp16 near-tie
+       sum:288:0 @tok  149: spec ' around' (rank 1, p=0.295) vs plain ' through' (rank 2, p=0.290), logit gap 0.016 -> fp16 near-tie
+       sum:292:0 @tok   37: spec ' and' (rank 1, p=0.452) vs plain '.' (rank 2, p=0.445), logit gap 0.016 -> fp16 near-tie
+       sum:295:0 @tok  432: spec 'Sources' (rank 1, p=0.445) vs plain 'Natural' (rank 2, p=0.445), logit gap 0.000 -> fp16 near-tie
+       sum:296:0 @tok   90: spec ' facility' (rank 2, p=0.500) vs plain ' plant' (rank 1, p=0.500), logit gap 0.000 -> fp16 near-tie
+       sum:303:0 @tok    4: spec ' passive' (rank 1, p=0.484) vs plain ' plants' (rank 2, p=0.477), logit gap 0.016 -> fp16 near-tie
+       sum:312:0 @tok   84: spec ' two' (rank 2, p=0.441) vs plain ' settlement' (rank 1, p=0.441), logit gap 0.000 -> fp16 near-tie
+       sum:320:0 @tok   78: spec ' is' (rank 2, p=0.367) vs plain ' seems' (rank 1, p=0.373), logit gap 0.016 -> fp16 near-tie
+
+16 differing turns: 16 near-ties, 0 inherited, 0 suspicious

@@ -1,0 +1,6 @@
+  humaneval:17:0 @tok  234: spec ' Test' (rank 2, p=0.496) vs plain ' Example' (rank 1, p=0.504), logit gap 0.016 -> fp16 near-tie
+  humaneval:39:0 @tok  203: spec ' code' (rank 1, p=0.416) vs plain ' can' (rank 2, p=0.416), logit gap 0.000 -> fp16 near-tie
+  humaneval:55:0 @tok  245: spec ' However' (rank 1, p=0.312) vs plain ' If' (rank 2, p=0.307), logit gap 0.016 -> fp16 near-tie
+  humaneval:79:0 @tok  296: spec ' sorted' (rank 1, p=0.443) vs plain ' excluding' (rank 2, p=0.436), logit gap 0.016 -> fp16 near-tie
+
+4 differing turns: 4 near-ties, 0 inherited, 0 suspicious

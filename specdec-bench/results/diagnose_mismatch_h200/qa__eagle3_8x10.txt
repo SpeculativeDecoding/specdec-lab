@@ -1,0 +1,12 @@
+        qa:330:0 @tok  107: spec ' of' (rank 2, p=0.500) vs plain ',' (rank 1, p=0.500), logit gap 0.000 -> fp16 near-tie
+        qa:335:0 @tok   47: spec '.\n\n' (rank 1, p=0.494) vs plain ' for' (rank 2, p=0.486), logit gap 0.016 -> fp16 near-tie
+        qa:340:0: one output stops earlier (stop-token near-tie)
+        qa:343:0: one output stops earlier (stop-token near-tie)
+        qa:359:0 @tok  105: spec ' and' (rank 1, p=0.504) vs plain ' ' (rank 2, p=0.496), logit gap 0.016 -> fp16 near-tie
+        qa:365:0 @tok  110: spec ' finances' (rank 1, p=0.507) vs plain ' financial' (rank 2, p=0.492), logit gap 0.031 -> fp16 near-tie
+        qa:372:0 @tok  130: spec '\n' (rank 2, p=0.486) vs plain ' (' (rank 1, p=0.502), logit gap 0.031 -> fp16 near-tie
+        qa:374:0 @tok    6: spec ' two' (rank 2, p=0.403) vs plain ' both' (rank 1, p=0.409), logit gap 0.016 -> fp16 near-tie
+        qa:380:0 @tok   91: spec ' policies' (rank 2, p=0.444) vs plain ' fiscal' (rank 1, p=0.444), logit gap 0.000 -> fp16 near-tie
+        qa:394:0: one output stops earlier (stop-token near-tie)
+
+10 differing turns: 7 near-ties, 0 inherited, 0 suspicious

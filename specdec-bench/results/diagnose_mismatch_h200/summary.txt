@@ -1,0 +1,12 @@
+alpaca eagle3_8x10: 5 differing turns: 5 near-ties, 0 inherited, 0 suspicious
+alpaca talon: 5 differing turns: 5 near-ties, 0 inherited, 0 suspicious
+gsm8k eagle3_8x10: 9 differing turns: 9 near-ties, 0 inherited, 0 suspicious
+gsm8k talon: 8 differing turns: 8 near-ties, 0 inherited, 0 suspicious
+humaneval eagle3_8x10: 4 differing turns: 4 near-ties, 0 inherited, 0 suspicious
+humaneval talon: 7 differing turns: 7 near-ties, 0 inherited, 0 suspicious
+mt_bench eagle3_8x10: 42 differing turns: 24 near-ties, 16 inherited, 0 suspicious
+mt_bench talon: 45 differing turns: 28 near-ties, 16 inherited, 0 suspicious
+qa eagle3_8x10: 10 differing turns: 7 near-ties, 0 inherited, 0 suspicious
+qa talon: 8 differing turns: 6 near-ties, 0 inherited, 0 suspicious
+sum eagle3_8x10: 16 differing turns: 16 near-ties, 0 inherited, 0 suspicious
+sum talon: 20 differing turns: 20 near-ties, 0 inherited, 0 suspicious

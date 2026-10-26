@@ -1,0 +1,7 @@
+     alpaca:14:0 @tok  234: spec 'In' (rank 2, p=0.381) vs plain 'So' (rank 1, p=0.381), logit gap 0.000 -> fp16 near-tie
+     alpaca:35:0 @tok   88: spec ' who' (rank 1, p=0.362) vs plain ' and' (rank 2, p=0.362), logit gap 0.000 -> fp16 near-tie
+     alpaca:55:0 @tok  114: spec ' as' (rank 1, p=0.309) vs plain ' at' (rank 2, p=0.309), logit gap 0.000 -> fp16 near-tie
+     alpaca:64:0 @tok   54: spec ' engage' (rank 1, p=0.275) vs plain ' even' (rank 2, p=0.275), logit gap 0.000 -> fp16 near-tie
+     alpaca:79:0 @tok  176: spec ')\n' (rank 1, p=0.494) vs plain ',' (rank 2, p=0.486), logit gap 0.016 -> fp16 near-tie
+
+5 differing turns: 5 near-ties, 0 inherited, 0 suspicious

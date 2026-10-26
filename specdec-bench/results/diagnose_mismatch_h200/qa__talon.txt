@@ -1,0 +1,10 @@
+        qa:335:0 @tok   47: spec '.\n\n' (rank 1, p=0.494) vs plain ' for' (rank 2, p=0.486), logit gap 0.016 -> fp16 near-tie
+        qa:340:0 @tok    9: spec ' "' (rank 2, p=0.452) vs plain ' adaptation' (rank 1, p=0.459), logit gap 0.016 -> fp16 near-tie
+        qa:343:0: one output stops earlier (stop-token near-tie)
+        qa:365:0 @tok  200: spec ' director' (rank 2, p=0.386) vs plain ' member' (rank 1, p=0.386), logit gap 0.000 -> fp16 near-tie
+        qa:374:0 @tok  144: spec '.' (rank 1, p=0.433) vs plain ',' (rank 2, p=0.426), logit gap 0.016 -> fp16 near-tie
+        qa:376:0 @tok   43: spec ' ant' (rank 1, p=0.345) vs plain ' ' (rank 2, p=0.340), logit gap 0.016 -> fp16 near-tie
+        qa:380:0 @tok   91: spec ' policies' (rank 2, p=0.444) vs plain ' fiscal' (rank 1, p=0.444), logit gap 0.000 -> fp16 near-tie
+        qa:394:0: one output stops earlier (stop-token near-tie)
+
+8 differing turns: 6 near-ties, 0 inherited, 0 suspicious

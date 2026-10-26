@@ -1,0 +1,47 @@
+  mt_bench:102:0 @tok  124: spec ' location' (rank 2, p=0.408) vs plain ' White' (rank 1, p=0.414), logit gap 0.016 -> fp16 near-tie
+  mt_bench:104:1 @tok   11: spec ' David' (rank 2, p=0.233) vs plain ' one' (rank 1, p=0.237), logit gap 0.016 -> fp16 near-tie
+  mt_bench:105:0 @tok  231: spec ' taken' (rank 2, p=0.290) vs plain ' not' (rank 1, p=0.290), logit gap 0.000 -> fp16 near-tie
+  mt_bench:116:0 @tok  389: spec ':\n\n' (rank 2, p=0.497) vs plain ' to' (rank 1, p=0.497), logit gap 0.000 -> fp16 near-tie
+  mt_bench:116:1: inherited (earlier turn differed)
+  mt_bench:120:1 @tok  161: spec 'So' (rank 1, p=0.288) vs plain 'Now' (rank 2, p=0.283), logit gap 0.016 -> fp16 near-tie
+  mt_bench:122:0 @tok  180: spec ' negative' (rank 1, p=0.403) vs plain ' invalid' (rank 2, p=0.403), logit gap 0.000 -> fp16 near-tie
+  mt_bench:122:1: inherited (earlier turn differed)
+  mt_bench:131:0 @tok   19: spec '.' (rank 2, p=0.402) vs plain '.\n\n' (rank 1, p=0.402), logit gap 0.000 -> fp16 near-tie
+  mt_bench:131:1: inherited (earlier turn differed)
+  mt_bench:139:1: one output stops earlier (stop-token near-tie)
+  mt_bench:140:1 @tok  515: spec ' =' (rank 1, p=0.415) vs plain "['" (rank 2, p=0.415), logit gap 0.000 -> fp16 near-tie
+  mt_bench:143:1 @tok  101: spec '200' (rank 2, p=0.406) vs plain '300' (rank 1, p=0.412), logit gap 0.016 -> fp16 near-tie
+  mt_bench:144:0 @tok   64: spec ' to' (rank 1, p=0.426) vs plain ' and' (rank 2, p=0.426), logit gap 0.000 -> fp16 near-tie
+  mt_bench:144:1: inherited (earlier turn differed)
+  mt_bench:147:1 @tok  146: spec ' lead' (rank 1, p=0.292) vs plain ' require' (rank 2, p=0.287), logit gap 0.016 -> fp16 near-tie
+  mt_bench:148:0 @tok  223: spec 'Consider' (rank 1, p=0.442) vs plain 'Five' (rank 2, p=0.435), logit gap 0.016 -> fp16 near-tie
+  mt_bench:148:1: inherited (earlier turn differed)
+  mt_bench:149:0 @tok  151: spec ' AI' (rank 1, p=0.331) vs plain ' image' (rank 2, p=0.326), logit gap 0.016 -> fp16 near-tie
+  mt_bench:149:1: inherited (earlier turn differed)
+  mt_bench:150:1 @tok  110: spec ' a' (rank 2, p=0.364) vs plain ' the' (rank 1, p=0.375), logit gap 0.031 -> fp16 near-tie
+  mt_bench:151:0 @tok  100: spec ' factors' (rank 1, p=0.387) vs plain ':\n' (rank 2, p=0.381), logit gap 0.016 -> fp16 near-tie
+  mt_bench:151:1: inherited (earlier turn differed)
+  mt_bench:152:0 @tok   87: spec ' experience' (rank 2, p=0.280) vs plain ' life' (rank 1, p=0.280), logit gap 0.000 -> fp16 near-tie
+  mt_bench:152:1: inherited (earlier turn differed)
+  mt_bench:153:0 @tok  121: spec ' and' (rank 2, p=0.377) vs plain ' prohibiting' (rank 1, p=0.377), logit gap 0.000 -> fp16 near-tie
+  mt_bench:153:1: inherited (earlier turn differed)
+  mt_bench:154:0 @tok  387: spec ' and' (rank 1, p=0.508) vs plain ' (' (rank 2, p=0.492), logit gap 0.031 -> fp16 near-tie
+  mt_bench:154:1: inherited (earlier turn differed)
+  mt_bench:155:1 @tok  100: spec ')' (rank 2, p=0.274) vs plain ' inches' (rank 1, p=0.279), logit gap 0.016 -> fp16 near-tie
+  mt_bench:157:1 @tok  239: spec ' and' (rank 2, p=0.475) vs plain ',' (rank 1, p=0.475), logit gap 0.000 -> fp16 near-tie
+  mt_bench:158:0 @tok  206: spec ' known' (rank 1, p=0.480) vs plain ' not' (rank 2, p=0.473), logit gap 0.016 -> fp16 near-tie
+  mt_bench:158:1: inherited (earlier turn differed)
+  mt_bench:160:1 @tok  738: spec ' and' (rank 2, p=0.500) vs plain ',' (rank 1, p=0.500), logit gap 0.000 -> fp16 near-tie
+   mt_bench:83:0 @tok  208: spec ' the' (rank 2, p=0.337) vs plain ' users' (rank 1, p=0.342), logit gap 0.016 -> fp16 near-tie
+   mt_bench:83:1: inherited (earlier turn differed)
+   mt_bench:87:0 @tok  400: spec 'But' (rank 1, p=0.391) vs plain 'L' (rank 2, p=0.385), logit gap 0.016 -> fp16 near-tie
+   mt_bench:87:1: inherited (earlier turn differed)
+   mt_bench:88:0 @tok   66: spec ' it' (rank 1, p=0.309) vs plain ' that' (rank 2, p=0.309), logit gap 0.000 -> fp16 near-tie
+   mt_bench:88:1: inherited (earlier turn differed)
+   mt_bench:91:0 @tok    8: spec ' no' (rank 2, p=0.216) vs plain ' question' (rank 1, p=0.223), logit gap 0.031 -> fp16 near-tie
+   mt_bench:91:1: inherited (earlier turn differed)
+   mt_bench:92:0 @tok   97: spec '.' (rank 2, p=0.469) vs plain ':' (rank 1, p=0.484), logit gap 0.031 -> fp16 near-tie
+   mt_bench:92:1: inherited (earlier turn differed)
+   mt_bench:93:1 @tok   16: spec ' one' (rank 2, p=0.264) vs plain ' during' (rank 1, p=0.273), logit gap 0.031 -> fp16 near-tie
+
+45 differing turns: 28 near-ties, 16 inherited, 0 suspicious

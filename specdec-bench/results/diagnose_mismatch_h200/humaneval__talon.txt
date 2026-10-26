@@ -1,0 +1,9 @@
+   humaneval:0:0 @tok  196: spec ' (' (rank 2, p=0.495) vs plain ' are' (rank 1, p=0.502), logit gap 0.016 -> fp16 near-tie
+  humaneval:16:0 @tok  184: spec '(max' (rank 1, p=0.508) vs plain '(num' (rank 2, p=0.492), logit gap 0.031 -> fp16 near-tie
+  humaneval:27:0 @tok  158: spec '((' (rank 2, p=0.372) vs plain '(len' (rank 1, p=0.384), logit gap 0.031 -> fp16 near-tie
+  humaneval:32:0 @tok  178: spec ' [' (rank 2, p=0.495) vs plain ' l' (rank 1, p=0.503), logit gap 0.016 -> fp16 near-tie
+  humaneval:39:0 @tok  203: spec ' code' (rank 1, p=0.416) vs plain ' can' (rank 2, p=0.416), logit gap 0.000 -> fp16 near-tie
+  humaneval:55:0 @tok  245: spec ' However' (rank 1, p=0.312) vs plain ' If' (rank 2, p=0.307), logit gap 0.016 -> fp16 near-tie
+  humaneval:79:0 @tok  296: spec ' sorted' (rank 1, p=0.443) vs plain ' excluding' (rank 2, p=0.436), logit gap 0.016 -> fp16 near-tie
+
+7 differing turns: 7 near-ties, 0 inherited, 0 suspicious

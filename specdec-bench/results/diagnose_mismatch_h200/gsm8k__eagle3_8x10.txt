@@ -1,0 +1,11 @@
+      gsm8k:10:0 @tok   12: spec ' we' (rank 2, p=0.492) vs plain ' let' (rank 1, p=0.508), logit gap 0.031 -> fp16 near-tie
+      gsm8k:16:0 @tok  100: spec '.' (rank 1, p=0.441) vs plain ',' (rank 2, p=0.434), logit gap 0.016 -> fp16 near-tie
+      gsm8k:31:0 @tok  132: spec ' elves' (rank 2, p=0.496) vs plain ' ' (rank 1, p=0.496), logit gap 0.000 -> fp16 near-tie
+      gsm8k:33:0 @tok   80: spec 'Now' (rank 1, p=0.324) vs plain 'Next' (rank 2, p=0.319), logit gap 0.016 -> fp16 near-tie
+      gsm8k:35:0 @tok   51: spec ' additional' (rank 2, p=0.352) vs plain ' ' (rank 1, p=0.358), logit gap 0.016 -> fp16 near-tie
+      gsm8k:50:0 @tok  156: spec ' to' (rank 2, p=0.496) vs plain ':\n\n' (rank 1, p=0.504), logit gap 0.016 -> fp16 near-tie
+      gsm8k:51:0 @tok   22: spec '.\n\n' (rank 1, p=0.290) vs plain '.' (rank 2, p=0.286), logit gap 0.016 -> fp16 near-tie
+      gsm8k:58:0 @tok  216: spec ' the' (rank 1, p=0.508) vs plain ' ' (rank 2, p=0.492), logit gap 0.031 -> fp16 near-tie
+      gsm8k:63:0 @tok  110: spec ' we' (rank 2, p=0.500) vs plain ',' (rank 1, p=0.500), logit gap 0.000 -> fp16 near-tie
+
+9 differing turns: 9 near-ties, 0 inherited, 0 suspicious
