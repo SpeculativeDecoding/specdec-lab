@@ -1,0 +1,4 @@
+bench,trees,mean_depth,max_depth,mean_widest_layer,depth_le_9,expanded_le_10,children_le_10,widest_le_10,fits_sglang
+gsm8k,2564,6.98,18,19.48,0.8471,0.587,0.7285,0.0757,0.3229
+humaneval,4049,8.5,21,18.42,0.6303,0.6866,0.7572,0.121,0.2608
+mt_bench,10274,6.89,21,20.81,0.8071,0.5633,0.6812,0.075,0.2532

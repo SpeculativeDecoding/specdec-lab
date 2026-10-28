@@ -1,0 +1,4 @@
+bench,trees,mean_depth,max_depth,mean_widest_layer,depth_le_9,expanded_le_10,children_le_10,widest_le_10,fits_sglang
+alpaca,2852,6.43,18,19.85,0.8776,0.4926,0.756,0.0694,0.2861
+qa,2848,5.95,19,23.23,0.8922,0.5667,0.6159,0.0432,0.2644
+sum,4216,5.97,18,22.64,0.8997,0.5515,0.6423,0.0458,0.2849
